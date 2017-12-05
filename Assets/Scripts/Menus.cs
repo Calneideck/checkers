@@ -4,8 +4,8 @@ using UnityEditor;
 public class Menus : MonoBehaviour
 {
     private const float size = 0.5f;
-    private static Vector2 pos = new Vector2(-2.25f, 2.25f);
-    private static int offset = 1;
+    private static Vector2 pos = new Vector2(-1.75f, 2.25f);
+    private static int offset = 0;
 
     [MenuItem("Custom Menu/Align")]
     static void DoSomething()

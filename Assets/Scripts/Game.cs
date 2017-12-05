@@ -18,6 +18,7 @@ public class Game : MonoBehaviour
     private GameObject ghost;
     private int playerNumber = 1;
 
+    private List<GameObject> tokens = new List<GameObject>();
     private GameObject selectedToken;
     private Vector3 startPos;
 
@@ -45,7 +46,7 @@ public class Game : MonoBehaviour
         else if (Input.GetButtonUp("Fire1"))
         {
             // Drop token
-            iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", ));
+            //iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", ));
             selectedToken = null;
         }
 
@@ -55,6 +56,14 @@ public class Game : MonoBehaviour
             pos.z = 0;
             selectedToken.transform.position = pos;
         }
+    }
+
+    void ClearBoard()
+    {
+        foreach (GameObject token in tokens)
+            Destroy(token);
+
+        tokens.Clear();
     }
 
     void NewGame()
@@ -72,5 +81,10 @@ public class Game : MonoBehaviour
             token.GetComponent<SpriteRenderer>().color = colours[1];
             token.tag = "Blue";
         }
+    }
+
+    public void GenerateBoard(GameLogic.Tile[] grid)
+    {
+
     }
 }
