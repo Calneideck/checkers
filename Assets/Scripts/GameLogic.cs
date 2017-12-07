@@ -30,7 +30,7 @@ public static class GameLogic
         {
             if (i < 20)
                 grid[i] = Tile.BLUE;
-            else if (i >= 35)
+            else if (i >= 30)
                 grid[i] = Tile.WHITE;
             else
                 grid[i] = Tile.EMPTY;
@@ -43,7 +43,7 @@ public static class GameLogic
             return new Result(false, -1, null);
 
         // Can only move own tokens
-        if (playerNumber == OwnerOfTile(tileNumber))
+        if (playerNumber != OwnerOfTile(tileNumber))
             return new Result(false, -1, null);
 
         // Can only move to an empty tile
@@ -59,14 +59,25 @@ public static class GameLogic
 
         if (result != -1)
         {
-            Result result2 = new Result(true, result, GetAvailMoves(targetTileNumber));
+            firstMove = false;
+            grid[targetTileNumber] = grid[tileNumber];
+            grid[tileNumber] = Tile.EMPTY;
+
+            Result result2;
+            if (System.Math.Abs(GetRow(tileNumber) - GetRow(targetTileNumber)) == 1)
+                result2 = new Result(true, result, new int[0]);
+            else
+                result2 = new Result(true, result, GetAvailMoves(targetTileNumber));
+
             if (result2.nextMoves.Length == 0)
             {
                 playersTurn = 1 - playersTurn;
+
+                // TESTING - REMOVE THIS LINE
+                playerNumber = 1 - playerNumber;
+
                 firstMove = true;
             }
-            else
-                firstMove = false;
 
             return result2;
         }
@@ -76,6 +87,9 @@ public static class GameLogic
 
     public static int[] GetAvailMoves(int tileNumber)
     {
+        if (playerNumber != OwnerOfTile(tileNumber))
+            return new int[0];
+
         List<int> moves = new List<int>();
 
         if (playerNumber == 0 || IsKing(tileNumber))
@@ -126,13 +140,13 @@ public static class GameLogic
 
             if (OddRow(tileNumber))
             {
-                if (grid[tileNumber + 6] == Tile.EMPTY && GetRow(tileNumber + 6) == row + 1)
-                    moves.Add(tileNumber + 6);
+                if (grid[tileNumber + 4] == Tile.EMPTY && GetRow(tileNumber + 4) == row + 1)
+                    moves.Add(tileNumber + 4);
             }
             else
             {
-                if (grid[tileNumber + 4] == Tile.EMPTY && GetRow(tileNumber + 4) == row + 1)
-                    moves.Add(tileNumber + 4);
+                if (grid[tileNumber + 6] == Tile.EMPTY && GetRow(tileNumber + 6) == row + 1)
+                    moves.Add(tileNumber + 6);
             }
         }
 
@@ -183,13 +197,13 @@ public static class GameLogic
 
             if (OddRow(tileNumber))
             {
-                if (grid[tileNumber - 4] == Tile.EMPTY && GetRow(tileNumber - 4) == row - 1)
-                    moves.Add(tileNumber - 4);
+                if (grid[tileNumber - 6] == Tile.EMPTY && GetRow(tileNumber - 6) == row - 1)
+                    moves.Add(tileNumber - 6);
             }
             else
             {
-                if (grid[tileNumber - 6] == Tile.EMPTY && GetRow(tileNumber - 6) == row - 1)
-                    moves.Add(tileNumber - 6);
+                if (grid[tileNumber - 4] == Tile.EMPTY && GetRow(tileNumber - 4) == row - 1)
+                    moves.Add(tileNumber - 4);
             }
         }
 
@@ -247,12 +261,12 @@ public static class GameLogic
 
             if (OddRow(tile))
             {
-                if (targetTile == tile + 6)
+                if (targetTile == tile + 4)
                     return 50;
             }
             else
             {
-                if (targetTile == tile + 4)
+                if (targetTile == tile + 6)
                     return 50;
             }
         }
@@ -313,12 +327,12 @@ public static class GameLogic
 
             if (OddRow(tile))
             {
-                if (targetTile == tile - 4)
+                if (targetTile == tile - 6)
                     return 50;
             }
             else
             {
-                if (targetTile == tile - 6)
+                if (targetTile == tile - 4)
                     return 50;
             }
         }
@@ -359,6 +373,6 @@ public static class GameLogic
 
     private static bool OddRow(int tile)
     {
-        return GetRow(tile) % 2 == 0;
+        return GetRow(tile) % 2 == 1;
     }
 }
