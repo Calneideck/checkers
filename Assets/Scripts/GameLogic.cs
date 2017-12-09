@@ -9,12 +9,14 @@ public static class GameLogic
         public bool success;
         public int removedToken;
         public int[] nextMoves;
+        public bool king;
 
-        public Result(bool success, int removedToken, int[] nextMoves)
+        public Result(bool success, int removedToken, int[] nextMoves, bool king)
         {
             this.success = success;
             this.removedToken = removedToken;
             this.nextMoves = nextMoves;
+            this.king = king;
         }
     }
 
@@ -39,16 +41,19 @@ public static class GameLogic
 
     public static Result Move(int tileNumber, int targetTileNumber)
     {
+        if (tileNumber < 0 || tileNumber >= 50 || targetTileNumber < 0 || targetTileNumber >= 50)
+            return new Result(false, -1, null, false);
+
         if (playerNumber != playersTurn)
-            return new Result(false, -1, null);
+            return new Result(false, -1, null, false);
 
         // Can only move own tokens
         if (playerNumber != OwnerOfTile(tileNumber))
-            return new Result(false, -1, null);
+            return new Result(false, -1, null, false);
 
         // Can only move to an empty tile
         if (grid[targetTileNumber] != Tile.EMPTY)
-            return new Result(false, -1, null);
+            return new Result(false, -1, null, false);
 
         int result = -1;
         if (playerNumber == 0 || IsKing(tileNumber))
@@ -62,12 +67,33 @@ public static class GameLogic
             firstMove = false;
             grid[targetTileNumber] = grid[tileNumber];
             grid[tileNumber] = Tile.EMPTY;
+            bool king = false;
+            if (playerNumber == 0)
+            {
+                if (GetRow(targetTileNumber) == 10)
+                {
+                    grid[targetTileNumber] = Tile.BLUE_KING;
+                    king = true;
+                }
+            }
+            else if (playerNumber == 1)
+            {
+                if (GetRow(targetTileNumber) == 1)
+                {
+                    grid[targetTileNumber] = Tile.WHITE_KING;
+                    king = true;
+                }
+            }
 
             Result result2;
             if (System.Math.Abs(GetRow(tileNumber) - GetRow(targetTileNumber)) == 1)
-                result2 = new Result(true, result, new int[0]);
+                result2 = new Result(true, result, new int[0], king);
             else
-                result2 = new Result(true, result, GetAvailMoves(targetTileNumber));
+            {
+                result2 = new Result(true, result, GetAvailMoves(targetTileNumber), king);
+                if (result >= 0 && result < 50)
+                    grid[result] = Tile.EMPTY;
+            }
 
             if (result2.nextMoves.Length == 0)
             {
@@ -82,7 +108,7 @@ public static class GameLogic
             return result2;
         }
         else
-            return new Result(false, -1, null); ;
+            return new Result(false, -1, null, false);
     }
 
     public static int[] GetAvailMoves(int tileNumber)
@@ -104,7 +130,7 @@ public static class GameLogic
     /// <summary>
     /// Returns 1 to 10
     /// </summary>
-    private static int  GetRow(int tile)
+    public static int  GetRow(int tile)
     {
         return (int)System.Math.Ceiling((tile + 1) / 5f);
     }
@@ -140,13 +166,13 @@ public static class GameLogic
 
             if (OddRow(tileNumber))
             {
-                if (grid[tileNumber + 4] == Tile.EMPTY && GetRow(tileNumber + 4) == row + 1)
-                    moves.Add(tileNumber + 4);
+                if (tileNumber + 6 < 50 && grid[tileNumber + 6] == Tile.EMPTY && GetRow(tileNumber + 6) == row + 1)
+                    moves.Add(tileNumber + 6);
             }
             else
             {
-                if (grid[tileNumber + 6] == Tile.EMPTY && GetRow(tileNumber + 6) == row + 1)
-                    moves.Add(tileNumber + 6);
+                if (tileNumber + 4 < 50 && grid[tileNumber + 4] == Tile.EMPTY && GetRow(tileNumber + 4) == row + 1)
+                    moves.Add(tileNumber + 4);
             }
         }
 
@@ -154,7 +180,7 @@ public static class GameLogic
             return;
 
         // Jumping over opponent token
-        if (grid[tileNumber + 9] == Tile.EMPTY && GetRow(tileNumber + 9) == row + 2)
+        if (tileNumber + 9 < 50 && grid[tileNumber + 9] == Tile.EMPTY && GetRow(tileNumber + 9) == row + 2)
         { 
             if (OddRow(tileNumber))
             {
@@ -168,7 +194,7 @@ public static class GameLogic
             }
         }
 
-        if (grid[tileNumber + 11] == Tile.EMPTY && GetRow(tileNumber + 11) == row + 2)
+        if (tileNumber + 11 < 50 && grid[tileNumber + 11] == Tile.EMPTY && GetRow(tileNumber + 11) == row + 2)
         {
             if (OddRow(tileNumber))
             {
@@ -197,20 +223,20 @@ public static class GameLogic
 
             if (OddRow(tileNumber))
             {
-                if (grid[tileNumber - 6] == Tile.EMPTY && GetRow(tileNumber - 6) == row - 1)
-                    moves.Add(tileNumber - 6);
+                if (tileNumber - 4 >= 0 && grid[tileNumber - 4] == Tile.EMPTY && GetRow(tileNumber - 4) == row - 1)
+                    moves.Add(tileNumber - 4);
             }
             else
             {
-                if (grid[tileNumber - 4] == Tile.EMPTY && GetRow(tileNumber - 4) == row - 1)
-                    moves.Add(tileNumber - 4);
+                if (tileNumber - 6 >= 0 && grid[tileNumber - 6] == Tile.EMPTY && GetRow(tileNumber - 6) == row - 1)
+                    moves.Add(tileNumber - 6);
             }
         }
 
         if (row <= 2)
             return;
 
-        if (grid[tileNumber - 9] == Tile.EMPTY && GetRow(tileNumber - 9) == row - 2)
+        if (tileNumber - 9 >= 0 && grid[tileNumber - 9] == Tile.EMPTY && GetRow(tileNumber - 9) == row - 2)
         {
             if (OddRow(tileNumber))
             {
@@ -224,7 +250,7 @@ public static class GameLogic
             }
         }
 
-        if (grid[tileNumber - 11] == Tile.EMPTY && GetRow(tileNumber - 11) == row + 2)
+        if (tileNumber - 11 >= 0 && grid[tileNumber - 11] == Tile.EMPTY && GetRow(tileNumber - 11) == row - 2)
         {
             if (OddRow(tileNumber))
             {
@@ -244,7 +270,7 @@ public static class GameLogic
         int r1 = GetRow(tile);
 
         // Can't move beyond last row
-        if (r1 == 10)
+        if (r1 >= 10)
             return -1;
 
         int r2 = GetRow(targetTile);
@@ -261,12 +287,12 @@ public static class GameLogic
 
             if (OddRow(tile))
             {
-                if (targetTile == tile + 4)
+                if (targetTile == tile + 6)
                     return 50;
             }
             else
             {
-                if (targetTile == tile + 6)
+                if (targetTile == tile + 4)
                     return 50;
             }
         }
@@ -310,7 +336,7 @@ public static class GameLogic
         int r1 = GetRow(tile);
 
         // Can't move beyond last row
-        if (r1 == 1)
+        if (r1 <= 1)
             return -1;
 
         int r2 = GetRow(targetTile);
@@ -327,12 +353,12 @@ public static class GameLogic
 
             if (OddRow(tile))
             {
-                if (targetTile == tile - 6)
+                if (targetTile == tile - 4)
                     return 50;
             }
             else
             {
-                if (targetTile == tile - 4)
+                if (targetTile == tile - 6)
                     return 50;
             }
         }

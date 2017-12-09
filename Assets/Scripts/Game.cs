@@ -14,6 +14,7 @@ public class Game : MonoBehaviour
     public Transform board;
     public LayerMask tokenMask;
     public GameObject highlightPrefab;
+    public Sprite kingSprite;
 
     private int turn = 1;
     private int playerNumber = 1;
@@ -67,6 +68,12 @@ public class Game : MonoBehaviour
                 {
                     iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", targetTile.position, "time", 0.5f));
                     selectedToken.GetComponent<Token>().Index = targetTile.transform.GetSiblingIndex();
+                    if (result.king && !selectedToken.GetComponent<Token>().King)
+                    {
+                        selectedToken.GetComponent<SpriteRenderer>().sprite = kingSprite;
+                        selectedToken.GetComponent<Token>().King = true;
+                    }
+
                     if (result.removedToken >= 0 && result.removedToken < 50)
                     {
                         GameObject removedToken = TokenFromIndex(result.removedToken);
