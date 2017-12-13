@@ -22,7 +22,7 @@ public static class GameLogic
 
     private static Tile[] grid;
     private static int playerNumber; // 0 = blue, 1 = white
-    private static bool firstMove = true;
+    private static int moved = -1;
     private static int playersTurn;
     private static bool jumpsAvail;
 
@@ -31,6 +31,7 @@ public static class GameLogic
         grid = new Tile[50];
         for (int i = 0; i < 50; i++)
         {
+            UnityEngine.Debug.Log(GetRow(i));
             if (i < 20)
                 grid[i] = Tile.BLUE;
             else if (i >= 30)
@@ -65,7 +66,7 @@ public static class GameLogic
 
         if (result != -1)
         {
-            firstMove = false;
+            moved = targetTileNumber;
             grid[targetTileNumber] = grid[tileNumber];
             grid[tileNumber] = Tile.EMPTY;
             bool king = false;
@@ -108,8 +109,8 @@ public static class GameLogic
                 // TESTING - REMOVE THIS LINE
                 playerNumber = 1 - playerNumber;
 
-                firstMove = true;
-                GetAvailJumps();
+                moved = -1;
+                CheckJumpAvail();
             }
 
             return fullResult;
@@ -137,7 +138,7 @@ public static class GameLogic
         return moves.ToArray();
     }
 
-    private static void GetAvailJumps()
+    private static void CheckJumpAvail()
     {
         jumpsAvail = false;
         for (int i = 0; i < 50; i++)
@@ -161,7 +162,7 @@ public static class GameLogic
         return (int)System.Math.Ceiling((tile + 1) / 5f);
     }
 
-    private static int  OwnerOfTile(int tileNumber)
+    private static int OwnerOfTile(int tileNumber)
     {
         Tile tile = grid[tileNumber];
         if (tile == Tile.BLUE || tile == Tile.BLUE_KING)
@@ -185,7 +186,7 @@ public static class GameLogic
         if (row >= 10)
             return;
 
-        if (firstMove && !jumpsAvail)
+        if (moved == -1 && !jumpsAvail)
         {
             if (grid[tileNumber + 5] == Tile.EMPTY)
                 moves.Add(tileNumber + 5);
@@ -202,7 +203,7 @@ public static class GameLogic
             }
         }
 
-        if (row >= 9)
+        if (row >= 9 || (moved >= 0 && tileNumber != moved))
             return;
 
         // Jumping over opponent token
@@ -226,7 +227,7 @@ public static class GameLogic
         if (row <= 1)
             return;
 
-        if (firstMove && !jumpsAvail)
+        if (moved == -1 && !jumpsAvail)
         {
             if (grid[tileNumber - 5] == Tile.EMPTY)
                 moves.Add(tileNumber - 5);
@@ -243,7 +244,7 @@ public static class GameLogic
             }
         }
 
-        if (row <= 2)
+        if (row <= 2 || (moved >= 0 && tileNumber != moved))
             return;
 
         if (tileNumber - 9 >= 0 && grid[tileNumber - 9] == Tile.EMPTY && GetRow(tileNumber - 9) == row - 2)
@@ -269,21 +270,20 @@ public static class GameLogic
 
         int r2 = GetRow(targetTile);
 
-        // +5 is always safe
-        if (targetTile == tile + 5)
-            return 50;
-
         if (r2 == r1 + 1)
         {
             // Can only continue jumping after jumping once
-            if (!firstMove || jumpsAvail)
+            if (moved != -1 || jumpsAvail)
                 return -1;
 
-            if (targetTile == tile + (OddRow(tile) ? 6 : 4))
+            if (targetTile == tile + (OddRow(tile) ? 6 : 4) || targetTile == tile + 5)
                 return 50;
         }
         else if (r2 == r1 + 2)
         {
+            if (moved >= 0 && tile != moved)
+                return -1;
+
             // Jumping over an opponent token
             // Check if valid diagonal jump and tile inbetween has an opponent token on it
             if (targetTile == tile + 9)
@@ -327,21 +327,20 @@ public static class GameLogic
 
         int r2 = GetRow(targetTile);
 
-        // +5 is always safe
-        if (targetTile == tile - 5)
-            return 50;
-
         if (r2 == r1 - 1)
         {
             // Can only continue jumping after jumping once
-            if (!firstMove || jumpsAvail)
+            if (moved != -1 || jumpsAvail)
                 return -1;
 
-            if (targetTile == tile - (OddRow(tile) ? 4 : 6))
+            if (targetTile == tile - (OddRow(tile) ? 4 : 6) || targetTile == tile - 5)
                 return 50;
         }
         else if (r2 == r1 - 2)
         {
+            if (moved >= 0 && tile != moved)
+                return -1;
+
             // Jumping over an opponent token
             // Check if valid diagonal jump and tile inbetween has an opponent token on it
             if (targetTile == tile - 9)
