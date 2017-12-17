@@ -10,13 +10,15 @@ public static class GameLogic
         public int removedToken;
         public int[] nextMoves;
         public bool king;
+        public int winner;
 
-        public Result(bool success, int removedToken, int[] nextMoves, bool king)
+        public Result(bool success, int removedToken, int[] nextMoves, bool king, int winner)
         {
             this.success = success;
             this.removedToken = removedToken;
             this.nextMoves = nextMoves;
             this.king = king;
+            this.winner = winner;
         }
     }
 
@@ -25,6 +27,7 @@ public static class GameLogic
     private static int moved = -1;
     private static int playersTurn;
     private static bool jumpsAvail;
+    private static int winner = -1;
 
     public static void NewGame()
     {
@@ -44,18 +47,22 @@ public static class GameLogic
     public static Result Move(int tileNumber, int targetTileNumber)
     {
         if (tileNumber < 0 || tileNumber >= 50 || targetTileNumber < 0 || targetTileNumber >= 50)
-            return new Result(false, -1, null, false);
+            return new Result(false, -1, null, false, -1);
+
+        // if game is over
+        if (winner != -1)
+            return new Result(false, -1, null, false, -1);
 
         if (playerNumber != playersTurn)
-            return new Result(false, -1, null, false);
+            return new Result(false, -1, null, false, -1);
 
         // Can only move own tokens
         if (playerNumber != OwnerOfTile(tileNumber))
-            return new Result(false, -1, null, false);
+            return new Result(false, -1, null, false, -1);
 
         // Can only move to an empty tile
         if (grid[targetTileNumber] != Tile.EMPTY)
-            return new Result(false, -1, null, false);
+            return new Result(false, -1, null, false, -1);
 
         int result = -1;
         if (playerNumber == 0 || IsKing(tileNumber))
@@ -66,6 +73,7 @@ public static class GameLogic
 
         if (result != -1)
         {
+            // Move the tokens
             moved = targetTileNumber;
             grid[targetTileNumber] = grid[tileNumber];
             grid[tileNumber] = Tile.EMPTY;
@@ -92,18 +100,19 @@ public static class GameLogic
             Result fullResult;
             // Only get next avail moves if jumped over opponent
             if (System.Math.Abs(GetRow(tileNumber) - GetRow(targetTileNumber)) == 1)
-                fullResult = new Result(true, result, new int[0], king);
+                fullResult = new Result(true, result, new int[0], king, -1);
             else
             {
                 // Jumped over so may get to continue
                 if (result >= 0 && result < 50)
                     grid[result] = Tile.EMPTY;
 
-                fullResult = new Result(true, result, GetAvailMoves(targetTileNumber), king);
+                fullResult = new Result(true, result, GetAvailMoves(targetTileNumber), king, -1);
             }
 
             if (fullResult.nextMoves.Length == 0)
             {
+                // Set other player's turn
                 playersTurn = 1 - playersTurn;
 
                 // TESTING - REMOVE THIS LINE
@@ -111,17 +120,22 @@ public static class GameLogic
 
                 moved = -1;
                 CheckJumpAvail();
+                winner = CheckWinner();
+                fullResult.winner = winner;
             }
 
             return fullResult;
         }
         else
-            return new Result(false, -1, null, false);
+            return new Result(false, -1, null, false, -1);
     }
 
     public static int[] GetAvailMoves(int tileNumber)
     {
         if (tileNumber < 0 || tileNumber >= 50)
+            return new int[0];
+
+        if (winner != -1)
             return new int[0];
 
         if (playerNumber != OwnerOfTile(tileNumber))
@@ -177,6 +191,22 @@ public static class GameLogic
     {
         Tile tile = grid[tileNumber];
         return tile == Tile.BLUE_KING || tile == Tile.WHITE_KING;
+    }
+
+    private static int CheckWinner()
+    {
+        bool allGone = true;
+        bool noMoves = true;
+
+        for (int i = 0; i < grid.Length; i++)
+            if (OwnerOfTile(i) == playersTurn)
+            {
+                allGone = false;
+                if (GetAvailMoves(i).Length > 0)
+                    noMoves = false;
+            }
+
+        return allGone || noMoves ? 1 - playersTurn : -1;
     }
 
     private static void BlueMoves(List<int> moves, int tileNumber)

@@ -80,6 +80,12 @@ public class Game : MonoBehaviour
                         tokens.Remove(removedToken);
                         Destroy(removedToken);
                     }
+
+                    if (result.winner != -1)
+                    {
+                        // GAME OVER
+                        print("WINNER WINNER CHICKEN DINNER: " + (result.winner == 0 ? "BLUE" : "WHITE"));
+                    }
                 }
                 else
                 {
@@ -116,27 +122,37 @@ public class Game : MonoBehaviour
     void NewGame()
     {
         for (int i = 0; i < 20; i++)
-        {
-            GameObject token = Instantiate(tokenPrefab, board.GetChild(i).position, Quaternion.identity, tokenHolder);
-            token.GetComponent<SpriteRenderer>().color = colours[1];
-            token.GetComponent<Token>().Index = i;
-            token.tag = "Blue";
-            tokens.Add(token);
-        }
+            CreateToken(i, GameLogic.Tile.BLUE);
 
         for (int i = 30; i < 50; i++)
-        {
-            GameObject token = Instantiate(tokenPrefab, board.GetChild(i).position, Quaternion.identity, tokenHolder);
-            token.GetComponent<SpriteRenderer>().color = colours[0];
-            token.GetComponent<Token>().Index = i;
-            token.tag = "White";
-            tokens.Add(token);
-        }
+            CreateToken(i, GameLogic.Tile.WHITE);
     }
 
     public void GenerateBoard(GameLogic.Tile[] grid)
     {
+        ClearBoard();
+        for (int i = 0; i < grid.Length; i++)
+            if (grid[i] != GameLogic.Tile.EMPTY)
+                CreateToken(i, grid[i]);
+    }
 
+    private void CreateToken(int index, GameLogic.Tile tile)
+    {
+        GameObject token = Instantiate(tokenPrefab, board.GetChild(index).position, Quaternion.identity, tokenHolder);
+
+        if (tile == GameLogic.Tile.BLUE || tile == GameLogic.Tile.BLUE_KING)
+        {
+            token.GetComponent<SpriteRenderer>().color = colours[1];
+            token.tag = "Blue";
+        }
+        else if (tile == GameLogic.Tile.WHITE || tile == GameLogic.Tile.WHITE_KING)
+        {
+            token.GetComponent<SpriteRenderer>().color = colours[0];
+            token.tag = "White";
+        }
+
+        token.GetComponent<Token>().Index = index;
+        tokens.Add(token);
     }
 
     private Transform GetClosestTile(Vector2 pos)
