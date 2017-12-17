@@ -42,66 +42,9 @@ public class Game : MonoBehaviour
             return;
 
         if (Input.GetButtonDown("Fire1"))
-        {
-            down = true;
-            RaycastHit2D hit = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition), Vector2.zero, 1000, tokenMask);
-            if (hit.collider != null)
-            {
-                selectedToken = hit.collider.gameObject;
-                startPos = selectedToken.transform.position;
-                int[] moves = GameLogic.GetAvailMoves(selectedToken.GetComponent<Token>().Index);
-                for (int i = 0; i < moves.Length; i++)
-                {
-                    GameObject highlight = highlights[i];
-                    highlight.transform.position = board.GetChild(moves[i]).position;
-                    highlight.SetActive(true);
-                }
-            }
-        }
-        else if (!Input.GetButton("Fire1") &&  down)
-        {
-            if (selectedToken != null)
-            {
-                Transform targetTile = GetClosestTile(Camera.main.ScreenToWorldPoint(Input.mousePosition));
-                GameLogic.Result result = GameLogic.Move(selectedToken.GetComponent<Token>().Index, targetTile.transform.GetSiblingIndex());
-                if (result.success)
-                {
-                    iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", targetTile.position, "time", 0.5f));
-                    selectedToken.GetComponent<Token>().Index = targetTile.transform.GetSiblingIndex();
-                    if (result.king && !selectedToken.GetComponent<Token>().King)
-                    {
-                        selectedToken.GetComponent<SpriteRenderer>().sprite = kingSprite;
-                        selectedToken.GetComponent<Token>().King = true;
-                    }
-
-                    if (result.removedToken >= 0 && result.removedToken < 50)
-                    {
-                        GameObject removedToken = TokenFromIndex(result.removedToken);
-                        tokens.Remove(removedToken);
-                        Destroy(removedToken);
-                    }
-
-                    if (result.winner != -1)
-                    {
-                        // GAME OVER
-                        print("WINNER WINNER CHICKEN DINNER: " + (result.winner == 0 ? "BLUE" : "WHITE"));
-                    }
-                }
-                else
-                {
-                    // Drop token
-                    iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", startPos, "time", 0.5f));
-                }
-
-                // Clear highlights
-                foreach (GameObject highlight in highlights)
-                    highlight.SetActive(false);
-
-                selectedToken = null;
-            }
-
-            down = false;
-        }
+            PickupToken();
+        else if (!Input.GetButton("Fire1") && down)
+            PlaceToken();
 
         if (selectedToken != null)
         {
@@ -109,6 +52,69 @@ public class Game : MonoBehaviour
             pos.z = 0;
             selectedToken.transform.position = pos;
         }
+    }
+
+    void PickupToken()
+    {
+        down = true;
+        RaycastHit2D hit = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition), Vector2.zero, 1000, tokenMask);
+        if (hit.collider != null)
+        {
+            selectedToken = hit.collider.gameObject;
+            startPos = selectedToken.transform.position;
+            int[] moves = GameLogic.GetAvailMoves(selectedToken.GetComponent<Token>().Index);
+            for (int i = 0; i < moves.Length; i++)
+            {
+                GameObject highlight = highlights[i];
+                highlight.transform.position = board.GetChild(moves[i]).position;
+                highlight.SetActive(true);
+            }
+        }
+    }
+
+    void PlaceToken()
+    {
+        if (selectedToken != null)
+        {
+            Transform targetTile = GetClosestTile(Camera.main.ScreenToWorldPoint(Input.mousePosition));
+            GameLogic.Result result = GameLogic.Move(selectedToken.GetComponent<Token>().Index, targetTile.transform.GetSiblingIndex());
+            if (result.success)
+            {
+                iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", targetTile.position, "time", 0.5f));
+                selectedToken.GetComponent<Token>().Index = targetTile.transform.GetSiblingIndex();
+                if (result.king && !selectedToken.GetComponent<Token>().King)
+                {
+                    selectedToken.GetComponent<SpriteRenderer>().sprite = kingSprite;
+                    selectedToken.GetComponent<Token>().King = true;
+                }
+
+                if (result.removedToken >= 0 && result.removedToken < 50)
+                {
+                    GameObject removedToken = TokenFromIndex(result.removedToken);
+                    tokens.Remove(removedToken);
+                    Destroy(removedToken);
+                }
+
+                if (result.winner != -1)
+                {
+                    // GAME OVER
+                    print("WINNER WINNER CHICKEN DINNER: " + (result.winner == 0 ? "BLUE" : "WHITE"));
+                }
+            }
+            else
+            {
+                // Drop token
+                iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", startPos, "time", 0.5f));
+            }
+
+            // Clear highlights
+            foreach (GameObject highlight in highlights)
+                highlight.SetActive(false);
+
+            selectedToken = null;
+        }
+
+        down = false;
     }
 
     void ClearBoard()
