@@ -9,44 +9,45 @@ using System.Security.Cryptography;
 
 public class TCP : MonoBehaviour
 {
-    private TcpClient client = new TcpClient();
+    private enum ServerType { LOGIN, REGISTER, CREATE_GAME, JOIN_GAME, MOVE, SURRENDER };
+    private enum ClientType { LOGIN_RESULT, GAME_STATE };
 
-    public InputField inp;
-    public Text chatbox;
+    private TcpClient client = new TcpClient();
+    private NetworkStream stream;
 
     void Start()
     {
-        client.Connect("192.168.0.216", 5000);
+        try
+        {
+            client.Connect("127.0.0.1", 5000);
+            stream = client.GetStream();
+            Debug.Log("Connected");
+        }
+        catch
+        {
+            Debug.LogError("Could not connect to server");
+        }
     }
 
     void Update()
     {
-        print(client.Connected);
-
-        NetworkStream stream = client.GetStream();
-        if (stream.DataAvailable)
+        if (stream != null && stream.DataAvailable)
         {
             byte[] bytes = new byte[client.Available];
             stream.Read(bytes, 0, bytes.Length);
             string data = Encoding.UTF8.GetString(bytes);
-            chatbox.text += '\n' + data;
+            print(data);
         }
     }
 
-    public void Send()
+    public void Register(string username, string password)
     {
-        if (!string.IsNullOrEmpty(inp.text))
-        {
-            NetworkStream stream = client.GetStream();
-            List<byte> b = new List<byte>();
-            WriteInt(b, 0);
-            print(getHashSha256(inp.text));
-            WriteString(b, getHashSha256(inp.text));
-            //WriteFloat(b, 3.75f);
-            //WriteString(b, "cat");
-            //WriteInt(b, -129555);
-            stream.Write(b.ToArray(), 0, b.Count);
-        }
+        List<byte> b = new List<byte>();
+        WriteInt(b, (int)ServerType.REGISTER);
+        WriteString(b, username);
+        //WriteString(b, GetHashSha256(password));
+        WriteString(b, password);
+        stream.Write(b.ToArray(), 0, b.Count);
     }
 
     void WriteInt(List<byte> bytes, int data)
@@ -68,14 +69,14 @@ public class TCP : MonoBehaviour
             bytes.Add(b);
     }
 
-    string getHashSha256(string text)
+    string GetHashSha256(string text)
     {
         byte[] bytes = Encoding.UTF8.GetBytes(text);
         SHA256Managed hashstring = new SHA256Managed();
         byte[] hash = hashstring.ComputeHash(bytes);
         string hashString = string.Empty;
-        foreach (byte x in hash)
-            hashString += string.Format("{0:x2}", x);
+        foreach (byte b in hash)
+            hashString += string.Format("{0:X2}", b);
 
         return hashString;
     }
