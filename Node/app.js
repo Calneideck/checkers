@@ -1,5 +1,6 @@
 const NET = require('net');
 const AWS = require('aws-sdk');
+var chars = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '2', '3', '4', '5', '6', '7', '8', '9'];
 
 var ServerType = ['LOGIN', 'REGISTER', 'CREATE_GAME', 'JOIN_GAME', 'MOVE', 'SURRENDER'];
 var ClientType = ['LOGIN_RESULT', 'GAME_STATE'];
@@ -10,6 +11,7 @@ var clients = [];
 // Start a TCP Server
 NET.createServer(function (socket) {
   var offset = 0; 
+  var username = null;
 
   // Put this new client in the list
   clients.push(socket);
@@ -20,7 +22,21 @@ NET.createServer(function (socket) {
     offset = 0;
     var id = readInt(data);
 
-    if (ServerType[id] == 'REGISTER') {
+    if (ServerType[id] == 'LOGIN') {
+      var username = readString(data);
+      var password = readString(data);
+      login(username, password, function(result) {
+        var buffer = Buffer.alloc(8);
+        buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
+        buffer.writeInt32LE(result ? 1 : 0, 4);
+        socket.write(buffer);
+
+        if (result)
+          username = result;
+      });
+    }
+
+    else if (ServerType[id] == 'REGISTER') {
       var username = readString(data);
       var password = readString(data);
       console.log('username:', username, 'password:', password);
@@ -32,6 +48,21 @@ NET.createServer(function (socket) {
       });
     }
 
+    else if (ServerType[id] == 'CREATE_GAME') {
+
+    }
+
+    else if (ServerType[id] == 'JOIN_GAME') {
+      
+    }
+
+    else if (ServerType[id] == 'MOVE') {
+      
+    }
+
+    else if (ServerType[id] == 'SURRENDER') {
+      
+    }
   });
 
   function readInt(buffer) {
@@ -79,14 +110,35 @@ function findOne(username, callback) {
   });
 };
 
+function login(username, password, callback) {
+  var db = new AWS.DynamoDB({ region: 'ap-southeast-2' });
+  var params = {
+    Key: {
+      "username": { S: username },
+      "password": { S: password }
+    },
+    TableName: 'checkers_users'
+  };
+  db.getItem(params, function (err, data) {
+    if (err || Object.getOwnPropertyNames(data).length == 0) {
+      if (err)
+        console.log(err);
+
+      callback(null);
+    }
+    else
+      callback(username);
+  });
+};
+
 function createUser(username, password, done) {
   findOne(username, function (err, user_result) {
     if (err)
-      return done(false);
+      return done(null);
 
     if (user_result) {
       console.log('user already exists');
-      return done(false);
+      return done(null);
     }
 
     var db = new AWS.DynamoDB({ region: 'ap-southeast-2' });
@@ -101,10 +153,38 @@ function createUser(username, password, done) {
       if (err)
       {
         console.log(err);
-        return done(false);
+        done(null);
       }
       else
-        done(true);
+        done(username);
     });
   });
 };
+
+function createGame(username) {
+  var db = new AWS.DynamoDB({ region: 'ap-southeast-2' });
+  var params = {
+    Item: {
+      'id': { S: id },
+      'blue': { S: username }
+    },
+    TableName: 'checkers_games'
+  };
+  db.putItem(params, function (err, data) {
+    if (err)
+    {
+      console.log(err);
+      done(null);
+    }
+    else
+      done(username);
+  });
+};
+
+function getGameID() {
+  var id = '';
+  for (var i = 0; i < 10; i++)
+    id += chars[Math.ceil(Math.random() * chars.length)].toUpperCase();
+  
+  return id;
+}

@@ -1,9 +1,6 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;
 using System.Net.Sockets;
 using System.Text;
-using System.IO;
-using System.Collections;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 
@@ -14,6 +11,9 @@ public class TCP : MonoBehaviour
 
     private TcpClient client = new TcpClient();
     private NetworkStream stream;
+
+    private event System.Action<bool> loginCallback;
+    private event System.Action<bool> registerCallback;
 
     void Start()
     {
@@ -33,23 +33,85 @@ public class TCP : MonoBehaviour
     {
         if (stream != null && stream.DataAvailable)
         {
+            // Get the data from the network stream
             byte[] bytes = new byte[client.Available];
             stream.Read(bytes, 0, bytes.Length);
-            string data = Encoding.UTF8.GetString(bytes);
-            print(data);
+
+            // Get message type
+            int offset = 0;
+            ClientType messageType = (ClientType)ReadInt(bytes, ref offset);
+
+            switch (messageType)
+            {
+                case ClientType.LOGIN_RESULT:
+                    int result = ReadInt(bytes, ref offset);
+                    if (registerCallback != null)
+                        registerCallback.Invoke(result == 1);
+                    break;
+
+                case ClientType.GAME_STATE:
+                    break;
+            }
         }
     }
 
-    public void Register(string username, string password)
+    public void LoginRegister(bool login, string username, string password, System.Action<bool> callback)
     {
+        if (stream == null)
+            return;
+
+        if (login)
+            loginCallback = callback;
+        else
+            registerCallback = callback;
+
         List<byte> b = new List<byte>();
-        WriteInt(b, (int)ServerType.REGISTER);
+        WriteInt(b, login ? (int)ServerType.LOGIN : (int)ServerType.REGISTER);
         WriteString(b, username);
-        //WriteString(b, GetHashSha256(password));
-        WriteString(b, password);
+        WriteString(b, GetHashSha256(password));
         stream.Write(b.ToArray(), 0, b.Count);
     }
 
+    #region Read
+    int ReadInt(byte[] bytes, ref int offset)
+    {
+        int data = 0;
+        try
+        {
+            data = System.BitConverter.ToInt32(bytes, offset);
+        }
+        catch { }
+        offset += 4;
+        return data;
+    }
+
+    float ReadFloat(byte[] bytes, ref int offset)
+    {
+        float data = 0;
+        try
+        {
+            data = System.BitConverter.ToSingle(bytes, offset);
+        }
+        catch { }
+        offset += 4;
+        return data;
+    }
+
+    string ReadString(byte[] bytes, ref int offset)
+    {
+        int length = ReadInt(bytes, ref offset);
+        string data = "";
+        try
+        {
+            data = Encoding.UTF8.GetString(bytes, offset, length);
+        }
+        catch { }
+        offset += length;
+        return data;
+    }
+    #endregion
+
+    #region Write
     void WriteInt(List<byte> bytes, int data)
     {
         foreach (byte b in System.BitConverter.GetBytes(data))
@@ -80,4 +142,5 @@ public class TCP : MonoBehaviour
 
         return hashString;
     }
+    #endregion
 }

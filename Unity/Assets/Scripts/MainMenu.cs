@@ -6,11 +6,60 @@ using UnityEngine.UI;
 public class MainMenu : MonoBehaviour
 {
     public TCP tcp;
-    public InputField userField;
-    public InputField passwordField;
+    public Transform canvas;
+    public GameObject waitingScreen;
+
+    [Header("Login")]
+    public InputField loginUserField;
+    public InputField loginPasswordField;
+
+    [Header("Register")]
+    public InputField regUserField;
+    public InputField regPasswordField;
 
     public void Register()
     {
-        tcp.Register(userField.text, passwordField.text);
+        tcp.LoginRegister(false, regUserField.text, regPasswordField.text, RegisterResult);
+        ShowWaiting();
+    }
+
+    void RegisterResult(bool result)
+    {
+        print(result);
+        if (result)
+        {
+
+        }
+        else
+        {
+
+        }
+    }
+
+    public void Login()
+    {
+        tcp.LoginRegister(true, regUserField.text, regPasswordField.text, LoginResult);
+        ShowWaiting();
+    }
+
+    void LoginResult(bool result)
+    {
+        print(result);
+        if (result)
+        {
+
+        }
+        else
+        {
+
+        }
+    }
+
+    void ShowWaiting()
+    {
+        for (int i = 0; i < canvas.childCount; i++)
+            canvas.GetChild(i).gameObject.SetActive(false);
+
+        waitingScreen.SetActive(true);
     }
 }
