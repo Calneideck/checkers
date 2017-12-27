@@ -38,7 +38,7 @@ public class MainMenu : MonoBehaviour
 
     public void Login()
     {
-        tcp.LoginRegister(true, regUserField.text, regPasswordField.text, LoginResult);
+        tcp.LoginRegister(true, loginUserField.text, loginPasswordField.text, LoginResult);
         ShowWaiting();
     }
 

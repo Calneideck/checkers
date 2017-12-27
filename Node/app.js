@@ -1,6 +1,5 @@
 const NET = require('net');
-const AWS = require('aws-sdk');
-var chars = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '2', '3', '4', '5', '6', '7', '8', '9'];
+const DB = require('./aws.js')
 
 var ServerType = ['LOGIN', 'REGISTER', 'CREATE_GAME', 'JOIN_GAME', 'MOVE', 'SURRENDER'];
 var ClientType = ['LOGIN_RESULT', 'GAME_STATE'];
@@ -10,7 +9,7 @@ var clients = [];
 
 // Start a TCP Server
 NET.createServer(function (socket) {
-  var offset = 0; 
+  var offset = 0;
   var username = null;
 
   // Put this new client in the list
@@ -25,14 +24,25 @@ NET.createServer(function (socket) {
     if (ServerType[id] == 'LOGIN') {
       var username = readString(data);
       var password = readString(data);
-      login(username, password, function(result) {
+
+      if (username.length == 0 || password.length == 0) {
+        var buffer = Buffer.alloc(8);
+        buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
+        buffer.writeInt32LE(0, 4);
+        socket.write(buffer);
+        return;
+      }
+
+      DB.login(username, password, function (result) {
         var buffer = Buffer.alloc(8);
         buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
         buffer.writeInt32LE(result ? 1 : 0, 4);
         socket.write(buffer);
-
-        if (result)
+        console.log(result);
+        if (result) {
+          console.log(result, 'logged in');
           username = result;
+        }
       });
     }
 
@@ -40,7 +50,7 @@ NET.createServer(function (socket) {
       var username = readString(data);
       var password = readString(data);
       console.log('username:', username, 'password:', password);
-      createUser(username, password, function (result) {
+      DB.createUser(username, password, function (result) {
         var buffer = Buffer.alloc(8);
         buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
         buffer.writeInt32LE(result ? 1 : 0, 4);
@@ -53,15 +63,15 @@ NET.createServer(function (socket) {
     }
 
     else if (ServerType[id] == 'JOIN_GAME') {
-      
+
     }
 
     else if (ServerType[id] == 'MOVE') {
-      
+
     }
 
     else if (ServerType[id] == 'SURRENDER') {
-      
+
     }
   });
 
@@ -89,102 +99,3 @@ NET.createServer(function (socket) {
 }).listen(5000);
 
 console.log('Checkers server running at port 5000');
-
-function findOne(username, callback) {
-  var db = new AWS.DynamoDB({ region: 'ap-southeast-2' });
-  var params = {
-    Key: {
-      "username": { S: username }
-    },
-    TableName: 'checkers_users'
-  };
-  db.getItem(params, function (err, data) {
-    if (err || Object.getOwnPropertyNames(data).length == 0) {
-      if (err)
-        console.log(err);
-
-      callback(err, null);
-    }
-    else
-      callback(err, data.Item.username.S);
-  });
-};
-
-function login(username, password, callback) {
-  var db = new AWS.DynamoDB({ region: 'ap-southeast-2' });
-  var params = {
-    Key: {
-      "username": { S: username },
-      "password": { S: password }
-    },
-    TableName: 'checkers_users'
-  };
-  db.getItem(params, function (err, data) {
-    if (err || Object.getOwnPropertyNames(data).length == 0) {
-      if (err)
-        console.log(err);
-
-      callback(null);
-    }
-    else
-      callback(username);
-  });
-};
-
-function createUser(username, password, done) {
-  findOne(username, function (err, user_result) {
-    if (err)
-      return done(null);
-
-    if (user_result) {
-      console.log('user already exists');
-      return done(null);
-    }
-
-    var db = new AWS.DynamoDB({ region: 'ap-southeast-2' });
-    var params = {
-      Item: {
-        'username': { S: username },
-        'password': { S: password }
-      },
-      TableName: 'checkers_users'
-    };
-    db.putItem(params, function (err, data) {
-      if (err)
-      {
-        console.log(err);
-        done(null);
-      }
-      else
-        done(username);
-    });
-  });
-};
-
-function createGame(username) {
-  var db = new AWS.DynamoDB({ region: 'ap-southeast-2' });
-  var params = {
-    Item: {
-      'id': { S: id },
-      'blue': { S: username }
-    },
-    TableName: 'checkers_games'
-  };
-  db.putItem(params, function (err, data) {
-    if (err)
-    {
-      console.log(err);
-      done(null);
-    }
-    else
-      done(username);
-  });
-};
-
-function getGameID() {
-  var id = '';
-  for (var i = 0; i < 10; i++)
-    id += chars[Math.ceil(Math.random() * chars.length)].toUpperCase();
-  
-  return id;
-}

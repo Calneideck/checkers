@@ -47,6 +47,8 @@ public class TCP : MonoBehaviour
                     int result = ReadInt(bytes, ref offset);
                     if (registerCallback != null)
                         registerCallback.Invoke(result == 1);
+                    else if (loginCallback != null)
+                        loginCallback.Invoke(result == 1);
                     break;
 
                 case ClientType.GAME_STATE:
@@ -130,6 +132,7 @@ public class TCP : MonoBehaviour
         foreach (byte b in Encoding.UTF8.GetBytes(data))
             bytes.Add(b);
     }
+    #endregion
 
     string GetHashSha256(string text)
     {
@@ -138,9 +141,8 @@ public class TCP : MonoBehaviour
         byte[] hash = hashstring.ComputeHash(bytes);
         string hashString = string.Empty;
         foreach (byte b in hash)
-            hashString += string.Format("{0:X2}", b);
+            hashString += string.Format("{0:x2}", b);
 
         return hashString;
     }
-    #endregion
 }
