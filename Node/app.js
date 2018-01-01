@@ -2,23 +2,20 @@ const NET = require('net');
 const DB = require('./aws.js')
 
 var ServerType = ['LOGIN', 'REGISTER', 'CREATE_GAME', 'JOIN_GAME', 'MOVE', 'SURRENDER'];
-var ClientType = ['LOGIN_RESULT', 'GAME_STATE'];
+var ClientType = ['LOGIN_RESULT', 'GAME_CREATED', 'GAME_STATE'];
 
 // Keep track of the chat clients
 var clients = [];
 
 // Start a TCP Server
-NET.createServer(function (socket) {
-  var offset = 0;
-  var username = null;
-
+NET.createServer(function(socket) {
   // Put this new client in the list
-  clients.push(socket);
+  clients[socket] = {username: '', offset: 0};
   console.log('client connected: ' + socket.remoteAddress);
 
   // Handle incoming messages from clients.
-  socket.on('data', function (data) {
-    offset = 0;
+  socket.on('data', function(data) {
+    clients[socket].offset = 0;
     var id = readInt(data);
 
     if (ServerType[id] == 'LOGIN') {
@@ -33,15 +30,14 @@ NET.createServer(function (socket) {
         return;
       }
 
-      DB.login(username, password, function (result) {
+      DB.login(username, password, function(result) {
         var buffer = Buffer.alloc(8);
         buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
         buffer.writeInt32LE(result ? 1 : 0, 4);
         socket.write(buffer);
-        console.log(result);
         if (result) {
           console.log(result, 'logged in');
-          username = result;
+          clients[socket].username = result;
         }
       });
     }
@@ -49,17 +45,34 @@ NET.createServer(function (socket) {
     else if (ServerType[id] == 'REGISTER') {
       var username = readString(data);
       var password = readString(data);
-      console.log('username:', username, 'password:', password);
-      DB.createUser(username, password, function (result) {
+      DB.createUser(username, password, function(result) {
         var buffer = Buffer.alloc(8);
         buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
         buffer.writeInt32LE(result ? 1 : 0, 4);
         socket.write(buffer);
+        if (result) {
+          console.log(result, 'registered');
+          clients[socket].username = result;
+        }
       });
     }
 
     else if (ServerType[id] == 'CREATE_GAME') {
-
+      var colour = readInt(data); // 0 = blue, 1 = white
+      if (colour != 0 && colour != 1)
+        return;
+      console.log('colour:', colour);
+      console.log(clients[socket].username);
+      DB.createGame(clients[socket].username, colour, function(gameId) {
+        var buffer = Buffer.alloc(18);
+        buffer.writeInt32LE(ClientType.indexOf('GAME_CREATED'), 0);
+        if (gameId) {
+          buffer.writeInt32LE(10, 4);
+          buffer.write(gameId, 8, 10, 'ascii');
+          console.log('game created:', gameId)
+        }
+        socket.write(buffer);
+      });
     }
 
     else if (ServerType[id] == 'JOIN_GAME') {
@@ -76,15 +89,15 @@ NET.createServer(function (socket) {
   });
 
   function readInt(buffer) {
-    var data = buffer.readInt32LE(offset);
-    offset += 4;
+    var data = buffer.readInt32LE(clients[socket].offset);
+    clients[socket].offset += 4;
     return data;
   }
 
   function readString(buffer) {
     var length = readInt(buffer);
-    var data = buffer.toString('utf8', offset, offset + length);
-    offset += length;
+    var data = buffer.toString('utf8', clients[socket].offset, clients[socket].offset + length);
+    clients[socket].offset += length;
     return data;
   }
 

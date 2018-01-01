@@ -7,7 +7,12 @@ public class MainMenu : MonoBehaviour
 {
     public TCP tcp;
     public Transform canvas;
+
+    [Header("Screens")]
     public GameObject waitingScreen;
+    public GameObject regScreen;
+    public GameObject loginScreen;
+    public GameObject mainMenuScreen;
 
     [Header("Login")]
     public InputField loginUserField;
@@ -17,6 +22,9 @@ public class MainMenu : MonoBehaviour
     public InputField regUserField;
     public InputField regPasswordField;
 
+    [Header("Create Game")]
+    public Dropdown colourDropdown;
+
     public void Register()
     {
         tcp.LoginRegister(false, regUserField.text, regPasswordField.text, RegisterResult);
@@ -25,15 +33,12 @@ public class MainMenu : MonoBehaviour
 
     void RegisterResult(bool result)
     {
-        print(result);
         if (result)
-        {
-
-        }
+            mainMenuScreen.SetActive(true);
         else
-        {
+            regScreen.SetActive(true);
 
-        }
+        waitingScreen.SetActive(false);
     }
 
     public void Login()
@@ -44,15 +49,32 @@ public class MainMenu : MonoBehaviour
 
     void LoginResult(bool result)
     {
-        print(result);
         if (result)
-        {
+            mainMenuScreen.SetActive(true);
+        else
+            loginScreen.SetActive(true);
 
+        waitingScreen.SetActive(false);
+    }
+
+    public void CreateGame()
+    {
+        int colour = colourDropdown.value;
+        tcp.CreateGame(colour, CreateGameResult);
+        ShowWaiting();
+    }
+
+    void CreateGameResult(string gameId)
+    {
+        if (string.IsNullOrEmpty(gameId))
+        {
+            // fail
         }
         else
         {
-
+            // success
         }
+        print(gameId);
     }
 
     void ShowWaiting()

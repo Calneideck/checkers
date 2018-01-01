@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System;
 using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
@@ -7,13 +8,14 @@ using System.Security.Cryptography;
 public class TCP : MonoBehaviour
 {
     private enum ServerType { LOGIN, REGISTER, CREATE_GAME, JOIN_GAME, MOVE, SURRENDER };
-    private enum ClientType { LOGIN_RESULT, GAME_STATE };
+    private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_STATE };
 
     private TcpClient client = new TcpClient();
     private NetworkStream stream;
 
-    private event System.Action<bool> loginCallback;
-    private event System.Action<bool> registerCallback;
+    private event Action<bool> loginCallback;
+    private event Action<bool> registerCallback;
+    private event Action<string> createGameCallback;
 
     void Start()
     {
@@ -51,16 +53,25 @@ public class TCP : MonoBehaviour
                         loginCallback.Invoke(result == 1);
                     break;
 
+                case ClientType.GAME_CREATED:
+                    string gameId = ReadString(bytes, ref offset);
+                    if (createGameCallback != null)
+                        createGameCallback.Invoke(gameId.Length == 10 ? gameId : null);
+                    break;
+
                 case ClientType.GAME_STATE:
                     break;
             }
         }
     }
 
-    public void LoginRegister(bool login, string username, string password, System.Action<bool> callback)
+    public void LoginRegister(bool login, string username, string password, Action<bool> callback)
     {
-        if (stream == null)
+        if (stream == null || username.Length == 0 || password.Length == 0)
+        {
+            callback(false);
             return;
+        }
 
         if (login)
             loginCallback = callback;
@@ -71,6 +82,15 @@ public class TCP : MonoBehaviour
         WriteInt(b, login ? (int)ServerType.LOGIN : (int)ServerType.REGISTER);
         WriteString(b, username);
         WriteString(b, GetHashSha256(password));
+        stream.Write(b.ToArray(), 0, b.Count);
+    }
+
+    public void CreateGame(int colour, Action<string> callback)
+    {
+        createGameCallback = callback;
+        List<byte> b = new List<byte>();
+        WriteInt(b, (int)ServerType.CREATE_GAME);
+        WriteInt(b, colour);
         stream.Write(b.ToArray(), 0, b.Count);
     }
 
@@ -105,7 +125,7 @@ public class TCP : MonoBehaviour
         string data = "";
         try
         {
-            data = Encoding.UTF8.GetString(bytes, offset, length);
+            data = Encoding.ASCII.GetString(bytes, offset, length);
         }
         catch { }
         offset += length;
@@ -116,20 +136,20 @@ public class TCP : MonoBehaviour
     #region Write
     void WriteInt(List<byte> bytes, int data)
     {
-        foreach (byte b in System.BitConverter.GetBytes(data))
+        foreach (byte b in BitConverter.GetBytes(data))
             bytes.Add(b);
     }
 
     void WriteFloat(List<byte> bytes, float data)
     {
-        foreach (byte b in System.BitConverter.GetBytes(data))
+        foreach (byte b in BitConverter.GetBytes(data))
             bytes.Add(b);
     }
 
     void WriteString(List<byte> bytes, string data)
     {
         WriteInt(bytes, data.Length);
-        foreach (byte b in Encoding.UTF8.GetBytes(data))
+        foreach (byte b in Encoding.ASCII.GetBytes(data))
             bytes.Add(b);
     }
     #endregion
