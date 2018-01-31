@@ -27,8 +27,6 @@ public class Game : MonoBehaviour
 
     void Start()
     {
-        GameLogic.NewGame();
-        NewGame();
         for (int i = 0; i < 4; i++)
         {
             highlights.Add(Instantiate(highlightPrefab));
@@ -125,13 +123,17 @@ public class Game : MonoBehaviour
         tokens.Clear();
     }
 
-    void NewGame()
+    public void NewGame()
     {
+        ClearBoard();
+
         for (int i = 0; i < 20; i++)
             CreateToken(i, GameLogic.Tile.BLUE);
 
         for (int i = 30; i < 50; i++)
             CreateToken(i, GameLogic.Tile.WHITE);
+
+        GameLogic.NewGame();
     }
 
     public void GenerateBoard(GameLogic.Tile[] grid)
@@ -140,6 +142,8 @@ public class Game : MonoBehaviour
         for (int i = 0; i < grid.Length; i++)
             if (grid[i] != GameLogic.Tile.EMPTY)
                 CreateToken(i, grid[i]);
+
+        GameLogic.SetGrid(grid);
     }
 
     private void CreateToken(int index, GameLogic.Tile tile)

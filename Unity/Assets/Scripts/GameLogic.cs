@@ -34,7 +34,6 @@ public static class GameLogic
         grid = new Tile[50];
         for (int i = 0; i < 50; i++)
         {
-            UnityEngine.Debug.Log(GetRow(i));
             if (i < 20)
                 grid[i] = Tile.BLUE;
             else if (i >= 30)
@@ -42,6 +41,11 @@ public static class GameLogic
             else
                 grid[i] = Tile.EMPTY;
         }
+    }
+
+    public static void SetGrid(Tile[] grid)
+    {
+        GameLogic.grid = grid;   
     }
 
     public static Result Move(int tileNumber, int targetTileNumber)

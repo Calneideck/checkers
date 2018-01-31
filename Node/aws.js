@@ -26,19 +26,19 @@ module.exports = {
         });
     },
 
-    createUser: function (username, password, done) {
+    createUser: function (username, password, callback) {
         username = username.toLowerCase();
         if (username.length == 0 || username.length > 20) {
-            return done(null);
+            return callback(null);
         }
 
         checkUser(username, function (err, user_result) {
             if (err)
-                return done(null);
+                return callback(null);
 
             if (user_result) {
                 console.log('user already exists');
-                return done(null);
+                return callback(null);
             }
 
             var params = {
@@ -51,15 +51,15 @@ module.exports = {
             DB.putItem(params, function (err, data) {
                 if (err) {
                     console.log(err);
-                    done(null);
+                    callback(null);
                 }
                 else
-                    done(username);
+                    callback(username);
             });
         });
     },
 
-    createGame: function (username, colour, done) {
+    createGame: function (username, colour, callback) {
         var board = createBoard();
         var params = {
             Item: {
@@ -82,19 +82,20 @@ module.exports = {
         // Check if game already exists with this id
         checkGame(gameId, function(err, result) {
             if (err)
-                return done(null);
+                return callback(null);
 
             if (result) {
-                module.exports.createGame(username, colour, done);
+                module.exports.createGame(username, colour, callback);
                 return;
             }
 
+            // All clear
             params.Item.game_id.S = gameId;
             // Create the game in the game table
             DB.putItem(params, function (err, data) {
                 if (err) {
                     console.log('createGame', err);
-                    done(null);
+                    callback(null);
                 }
                 else {
                     // Get 'games' attribute in users table
@@ -110,7 +111,7 @@ module.exports = {
                             if (err)
                                 console.log('createGameGetUser:', err);
             
-                            done(null);
+                            callback(null);
                         }
                         else {
                             // Update 'games' attribute in users table
@@ -133,15 +134,69 @@ module.exports = {
                             DB.updateItem(params, function(err, data) {
                                 if (err) {
                                     console.log('createGameUpdateUser:', err);
-                                    done(null);
+                                    callback(null);
                                 }
                                 else
-                                    done(gameId);
+                                    callback(gameId);
                             });
                         }
                     });
                 }
             });
+        });
+    },
+
+    GetUserGames: function(username, callback) {
+        username = username.toLowerCase();
+        var params = {
+            Key: {
+                'username': { S: username }
+            },
+            ProjectionExpression: 'games',
+            TableName: 'checkers_users'
+        };
+        DB.getItem(params, function (err, data) {
+            if (err || Object.getOwnPropertyNames(data).length == 0) {
+                if (err)
+                    console.log(err);
+
+                callback(null);
+            }
+            else if (data.Item.games)
+                callback(data.Item.games.S);
+            else
+                callback(null);
+        });
+    },
+
+    GetGame: function(gameId, username, callback) {
+        gameId = gameId.toUpperCase();
+        username = username.toLowerCase();
+        var params = {
+            Key: {
+                'game_id': { S: gameId }
+            },
+            ProjectionExpression: 'board, turn, blue, white',
+            TableName: 'checkers_games'
+        };
+        DB.getItem(params, function (err, data) {
+            if (err || Object.getOwnPropertyNames(data).length == 0) {
+                if (err)
+                    console.log(err);
+
+                callback(false);
+            }
+            else {
+                var blue = '';
+                if (data.Item.blue)
+                    blue = data.Item.blue.S;
+
+                var white = '';
+                if (data.Item.white)
+                    white = data.Item.white.S;
+
+                callback(true, data.Item.board.S, data.Item.turn.S, blue, white);
+            }
         });
     }
 }
