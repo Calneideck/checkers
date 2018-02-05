@@ -195,7 +195,146 @@ module.exports = {
                 if (data.Item.white)
                     white = data.Item.white.S;
 
-                callback(true, data.Item.board.S, data.Item.turn.S, blue, white);
+                var board = data.Item.board.S;
+                var turn = data.Item.turn.S;
+
+                if (blue == username || white == username)
+                    callback(true, data.Item.board.S, data.Item.turn.S, blue, white);
+                else if (blue == '') {
+                    // Save username to blue
+                    blue = username;
+                    params = {
+                        Key: {
+                            'game_id': { S: gameId }
+                        },
+                        TableName: 'checkers_games',
+                        UpdateExpression: 'set blue = :blue',
+                        ExpressionAttributeValues: { 
+                            ':blue': { S: blue}
+                        }
+                    };
+                    DB.updateItem(params, function(err, data) {
+                        if (err) {
+                            console.log('updateBlueUsername:', err);
+                            callback(false);
+                        }
+                        else {
+                            console.log(username, 'has taken the blue slot');
+                            // Get 'games' attribute in users table
+                            var params = {
+                                Key: {
+                                    'username': { S: username }
+                                },
+                                ProjectionExpression: 'games',
+                                TableName: 'checkers_users'
+                            };
+                            DB.getItem(params, function (err, data) {
+                                if (err || Object.getOwnPropertyNames(data).length == 0) {
+                                    if (err)
+                                        console.log('createGameGetUser:', err);
+                    
+                                    callback(null);
+                                }
+                                else {
+                                    // Update 'games' attribute in users table
+                                    var games = gameId;
+                                    if (data.Item.games) {
+                                        games = data.Item.games.S.split(',');
+                                        games.push(gameId);
+                                        games = games.join(',');
+                                    }
+                                    var params = {
+                                        Key: {
+                                            'username': { S: username }
+                                        },
+                                        TableName: 'checkers_users',
+                                        UpdateExpression: 'set games = :games',
+                                        ExpressionAttributeValues: { 
+                                            ':games': { S: games}
+                                        }
+                                    };
+                                    DB.updateItem(params, function(err, data) {
+                                        if (err) {
+                                            console.log('updateBlueUsernameGamesList:', err);
+                                            callback(null);
+                                        }
+                                        else
+                                            callback(true, board, turn, blue, white);
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+                else if (white == '') {
+                    // Save username to white
+                    white = username;
+                    params = {
+                        Key: {
+                            'game_id': { S: gameId }
+                        },
+                        TableName: 'checkers_games',
+                        UpdateExpression: 'set white = :white',
+                        ExpressionAttributeValues: { 
+                            ':white': { S: white}
+                        }
+                    };
+                    DB.updateItem(params, function(err, data) {
+                        if (err) {
+                            console.log('updateWhiteUsername:', err);
+                            callback(false);
+                        }
+                        else {
+                            console.log(username, 'has taken the white slot');
+
+                            // Get 'games' attribute in users table
+                            var params = {
+                                Key: {
+                                    'username': { S: username }
+                                },
+                                ProjectionExpression: 'games',
+                                TableName: 'checkers_users'
+                            };
+                            DB.getItem(params, function (err, data) {
+                                if (err || Object.getOwnPropertyNames(data).length == 0) {
+                                    if (err)
+                                        console.log('createGameGetUser:', err);
+                    
+                                    callback(null);
+                                }
+                                else {
+                                    // Update 'games' attribute in users table
+                                    var games = gameId;
+                                    if (data.Item.games) {
+                                        games = data.Item.games.S.split(',');
+                                        games.push(gameId);
+                                        games = games.join(',');
+                                    }
+                                    var params = {
+                                        Key: {
+                                            'username': { S: username }
+                                        },
+                                        TableName: 'checkers_users',
+                                        UpdateExpression: 'set games = :games',
+                                        ExpressionAttributeValues: { 
+                                            ':games': { S: games}
+                                        }
+                                    };
+                                    DB.updateItem(params, function(err, data) {
+                                        if (err) {
+                                            console.log('updateBlueUsernameGamesList:', err);
+                                            callback(null);
+                                        }
+                                        else
+                                            callback(true, board, turn, blue, white);
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+                else
+                    callback(false);
             }
         });
     }

@@ -93,6 +93,8 @@ public class TCP : MonoBehaviour
                             joinResumeCallback.Invoke(null, 0, null, null);
 
                     }
+                    else if (joinResumeCallback != null)
+                        joinResumeCallback.Invoke(null, 0, null, null);
                     break;
             }
         }

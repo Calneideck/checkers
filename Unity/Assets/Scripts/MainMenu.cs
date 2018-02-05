@@ -37,6 +37,9 @@ public class MainMenu : MonoBehaviour
     public Transform scrollRect;
     public GameObject buttonPrefab;
 
+    [Header("Join Game")]
+    public InputField joinGameId;
+
     private string gameId = null;
 
     public void Register()
@@ -123,7 +126,18 @@ public class MainMenu : MonoBehaviour
     void ContinueGame(string gameId)
     {
         ShowWaiting();
+        this.gameId = gameId;
         tcp.JoinResumeGame(gameId, GoToGame);
+    }
+
+    public void JoinGame()
+    {
+        if (!string.IsNullOrEmpty(joinGameId.text) && joinGameId.text.Length == 10)
+        {
+            ShowWaiting();
+            gameId = joinGameId.text;
+            tcp.JoinResumeGame(gameId, GoToGame);
+        }
     }
 
     void GoToGame(GameLogic.Tile[] grid, int turn, string blue, string white)
