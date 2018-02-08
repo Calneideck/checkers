@@ -89,6 +89,7 @@ module.exports = {
             }
 
             if (result)
+                // gameId already exists so retry
                 return module.exports.createGame(username, colour, callback);
 
             // All clear
@@ -99,51 +100,8 @@ module.exports = {
                     console.log('createGamePutItem', err);
                     callback('Unable to create game');
                 }
-                else {
-                    // Get 'games' attribute in users table
-                    var params = {
-                        Key: {
-                            'username': { S: username }
-                        },
-                        ProjectionExpression: 'games',
-                        TableName: 'checkers_users'
-                    };
-                    DB.getItem(params, function (err, data) {
-                        if (err || Object.getOwnPropertyNames(data).length == 0) {
-                            if (err)
-                                console.log('createGameGetUser:', err);
-            
-                            callback('Unable to create game');
-                        }
-                        else {
-                            // Update 'games' attribute in users table
-                            var games = gameId;
-                            if (data.Item.games) {
-                                games = data.Item.games.S.split(',');
-                                games.push(gameId);
-                                games = games.join(',');
-                            }
-                            var params = {
-                                Key: {
-                                    'username': { S: username }
-                                },
-                                TableName: 'checkers_users',
-                                UpdateExpression: 'set games = :games',
-                                ExpressionAttributeValues: { 
-                                    ':games': { S: games}
-                                }
-                            };
-                            DB.updateItem(params, function(err, data) {
-                                if (err) {
-                                    console.log('createGameUpdateUser:', err);
-                                    callback('Unable to create game');
-                                }
-                                else
-                                    callback(null, gameId);
-                            });
-                        }
-                    });
-                }
+                else
+                    addUserToNewGame(callback, username, gameId);
             });
         });
     },
@@ -203,136 +161,10 @@ module.exports = {
                 if (blue == username || white == username)
                     // user is in game already - all good
                     callback(null, data.Item.board.S, data.Item.turn.S, blue, white);
-                else if (blue == '') {
-                    // user joining game as blue
-                    blue = username;
-                    params = {
-                        Key: {
-                            'game_id': { S: gameId }
-                        },
-                        TableName: 'checkers_games',
-                        UpdateExpression: 'set blue = :blue',
-                        ExpressionAttributeValues: { 
-                            ':blue': { S: blue}
-                        }
-                    };
-                    DB.updateItem(params, function(err, data) {
-                        if (err) {
-                            console.log('updateBlueUsername: ', err);
-                            callback('Unable to get game data');
-                        }
-                        else {
-                            // Get 'games' attribute in users table
-                            var params = {
-                                Key: {
-                                    'username': { S: username }
-                                },
-                                ProjectionExpression: 'games',
-                                TableName: 'checkers_users'
-                            };
-                            DB.getItem(params, function (err, data) {
-                                if (err || Object.getOwnPropertyNames(data).length == 0) {
-                                    if (err)
-                                        console.log('createGameGetUser:', err);
-                    
-                                    callback('Unable to get game data');
-                                }
-                                else {
-                                    // Update 'games' attribute in users table
-                                    var games = gameId;
-                                    if (data.Item.games) {
-                                        games = data.Item.games.S.split(',');
-                                        games.push(gameId);
-                                        games = games.join(',');
-                                    }
-                                    var params = {
-                                        Key: {
-                                            'username': { S: username }
-                                        },
-                                        TableName: 'checkers_users',
-                                        UpdateExpression: 'set games = :games',
-                                        ExpressionAttributeValues: { 
-                                            ':games': { S: games}
-                                        }
-                                    };
-                                    DB.updateItem(params, function(err, data) {
-                                        if (err) {
-                                            console.log('updateBlueUsernameGamesList: ', err);
-                                            callback('Unable to get game data');
-                                        }
-                                        else
-                                            callback(null, board, turn, blue, white);
-                                    });
-                                }
-                            });
-                        }
-                    });
-                }
-                else if (white == '') {
-                    // user is joining as white
-                    white = username;
-                    params = {
-                        Key: {
-                            'game_id': { S: gameId }
-                        },
-                        TableName: 'checkers_games',
-                        UpdateExpression: 'set white = :white',
-                        ExpressionAttributeValues: { 
-                            ':white': { S: white}
-                        }
-                    };
-                    DB.updateItem(params, function(err, data) {
-                        if (err) {
-                            console.log('updateWhiteUsername: ', err);
-                            callback('Unable to get game data');
-                        }
-                        else {
-                            // Get 'games' attribute in users table
-                            var params = {
-                                Key: {
-                                    'username': { S: username }
-                                },
-                                ProjectionExpression: 'games',
-                                TableName: 'checkers_users'
-                            };
-                            DB.getItem(params, function (err, data) {
-                                if (err || Object.getOwnPropertyNames(data).length == 0) {
-                                    if (err)
-                                        console.log('createGameGetUser:', err);
-                    
-                                    callback('Unable to get game data');
-                                }
-                                else {
-                                    // Update 'games' attribute in users table
-                                    var games = gameId;
-                                    if (data.Item.games) {
-                                        games = data.Item.games.S.split(',');
-                                        games.push(gameId);
-                                        games = games.join(',');
-                                    }
-                                    var params = {
-                                        Key: {
-                                            'username': { S: username }
-                                        },
-                                        TableName: 'checkers_users',
-                                        UpdateExpression: 'set games = :games',
-                                        ExpressionAttributeValues: { 
-                                            ':games': { S: games}
-                                        }
-                                    };
-                                    DB.updateItem(params, function(err, data) {
-                                        if (err) {
-                                            console.log('updateBlueUsernameGamesList:', err);
-                                            callback('Unable to get game data');
-                                        }
-                                        else
-                                            callback(null, board, turn, blue, white);
-                                    });
-                                }
-                            });
-                        }
-                    });
-                }
+                else if (blue == '')
+                    addUserToExistingGame(callback, gameId, board, turn, username, white, true);
+                else if (white == '')
+                    addUserToExistingGame(callback, gameId, board, turn, blue, username, false);
                 else
                     callback('Game is full', null, 0, null, null);
             }
@@ -375,6 +207,120 @@ function checkGame(gameId, callback) {
         }
         else
             callback(err, data.Item.game_id.S);
+    });
+}
+
+function addUserToNewGame(callback, username, gameId) {
+    // Get 'games' attribute in users table
+    var params = {
+        Key: {
+            'username': { S: username }
+        },
+        ProjectionExpression: 'games',
+        TableName: 'checkers_users'
+    };
+    DB.getItem(params, function (err, data) {
+        if (err || Object.getOwnPropertyNames(data).length == 0) {
+            if (err)
+                console.log('createGameGetUser:', err);
+
+            callback('Unable to create game');
+        }
+        else {
+            // Update 'games' attribute in users table
+            var games = gameId;
+            if (data.Item.games) {
+                games = data.Item.games.S.split(',');
+                games.push(gameId);
+                games = games.join(',');
+            }
+            var params = {
+                Key: {
+                    'username': { S: username }
+                },
+                TableName: 'checkers_users',
+                UpdateExpression: 'set games = :games',
+                ExpressionAttributeValues: { 
+                    ':games': { S: games}
+                }
+            };
+            DB.updateItem(params, function(err, data) {
+                if (err) {
+                    console.log('createGameUpdateUser:', err);
+                    callback('Unable to create game');
+                }
+                else
+                    callback(null, gameId);
+            });
+        }
+    });
+}
+
+function addUserToExistingGame(callback, gameId, board, turn, blue, white, updateBlue) {
+    var params = {
+        Key: {
+            'game_id': { S: gameId }
+        },
+        TableName: 'checkers_games',
+        UpdateExpression: updateBlue ? 'set blue = :blue' : 'set white = :white',
+        ExpressionAttributeValues: updateBlue ? { 
+            ':blue': { S: blue}
+        } : {
+            ':white': { S: white}
+        }
+    };
+
+    var username = updateBlue ? blue : white;
+    DB.updateItem(params, function(err, data) {
+        if (err) {
+            console.log('updateUsername: ', err);
+            callback('Unable to get game data');
+        }
+        else {
+            // Get 'games' attribute in users table
+            var params = {
+                Key: {
+                    'username': { S: username }
+                },
+                ProjectionExpression: 'games',
+                TableName: 'checkers_users'
+            };
+            DB.getItem(params, function (err, data) {
+                if (err || Object.getOwnPropertyNames(data).length == 0) {
+                    if (err)
+                        console.log('createGameGetUser:', err);
+    
+                    callback('Unable to get game data');
+                }
+                else {
+                    // Update 'games' attribute in users table
+                    var games = gameId;
+                    if (data.Item.games) {
+                        games = data.Item.games.S.split(',');
+                        games.push(gameId);
+                        games = games.join(',');
+                    }
+                    var params = {
+                        Key: {
+                            'username': { S: username }
+                        },
+                        TableName: 'checkers_users',
+                        UpdateExpression: 'set games = :games',
+                        ExpressionAttributeValues: { 
+                            ':games': { S: games}
+                        }
+                    };
+                    DB.updateItem(params, function(err, data) {
+                        if (err) {
+                            console.log('updateBlueUsernameGamesList: ', err);
+                            callback('Unable to get game data');
+                        }
+                        else
+                            callback(null, board, turn, blue, white);
+                    });
+                }
+            });
+        }
     });
 }
 

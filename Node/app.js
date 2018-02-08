@@ -1,8 +1,9 @@
 const NET = require('net');
-const DB = require('./aws.js')
+const DB = require('./aws.js');
+const RULES = require('./rules.js');
 
 var ServerType = ['LOGIN', 'REGISTER', 'CREATE_GAME', 'REQUEST_GAMES', 'JOIN_RESUME_GAME', 'MOVE', 'SURRENDER'];
-var ClientType = ['LOGIN_RESULT', 'GAME_CREATED', 'GAME_LIST', 'GAME_STATE'];
+var ClientType = ['LOGIN_RESULT', 'GAME_CREATED', 'GAME_LIST', 'GAME_STATE', 'MOVE_RESULT'];
 
 // Keep track of the chat clients
 var clients = [];
@@ -10,7 +11,7 @@ var clients = [];
 // Start a TCP Server
 NET.createServer(function(socket) {
   // Put this new client in the list
-  clients[socket] = {username: '', offset: 0};
+  clients[socket] = {username: '', offset: 0, gameId: null};
   console.log('client connected: ' + socket.remoteAddress);
 
   // Handle incoming messages from clients.
@@ -79,6 +80,7 @@ NET.createServer(function(socket) {
           writeString(socket, buffer, gameId);
           socket.write(buffer);
           console.log('game created:', gameId)
+          clients[socket].gameId = gameId;
         }
       });
     }
@@ -107,10 +109,6 @@ NET.createServer(function(socket) {
           if (err || board.length != 99)
             basicFail(socket, 'GAME_STATE', err ? err : 'Unable to get game data');
           else {
-            console.log('board', board);
-            console.log('turn', turn);
-            console.log('blue', blue);
-            console.log('white', white);
             var buffer = Buffer.alloc(120 + blue.length + white.length);
             writeInt(socket, buffer, ClientType.indexOf('GAME_STATE'));
             writeBool(socket, buffer, true);
@@ -119,6 +117,7 @@ NET.createServer(function(socket) {
             writeString(socket, buffer, blue);
             writeString(socket, buffer, white);
             socket.write(buffer);
+            clients[socket].gameId = gameId;
           }
         });
       }
@@ -127,7 +126,28 @@ NET.createServer(function(socket) {
     }
 
     else if (ServerType[id] == 'MOVE') {
+      var tile = readInt(data);
+      var moves = readString(data);
+      clients[socket].offset = 0;
 
+      if (clients[socket].gameId == null)
+        return basicFail(socket, 'MOVE_RESULT', err ? err : 'Not in a game');
+
+      DB.getGame(clients[socket].gameId, clients[socket].username, function(err, board, turn, blue, white) {
+        if (err || board.length != 99)
+          basicFail(socket, 'MOVE_RESULT', err ? err : 'Unable to get game data');
+        else {
+          var playerNumber = -1;
+          if (blue == clients[socket].username)
+            playerNumber = 0;
+          else if (white == clients[socket].username)
+            playerNumber = 1;
+          else
+            basicFail(socket, 'MOVE_RESULT', err ? err : 'User not in game');
+
+          RULES.move(board, playerNumber, turn, tile, moves);
+        }
+      });
     }
 
     else if (ServerType[id] == 'SURRENDER') {

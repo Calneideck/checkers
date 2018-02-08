@@ -6,18 +6,20 @@ using System.Collections.Generic;
 
 public class Game : MonoBehaviour
 {
-    // 0 = white, 1 = blue
+    // 0 = blue, 1 = white
 
     public GameObject tokenPrefab;
     public Transform tokenHolder;
     public Color[] colours;
+    public Text[] playerNames;
+    public Outline[] playerNameOutlines;
     public Transform board;
     public LayerMask tokenMask;
     public GameObject highlightPrefab;
     public Sprite kingSprite;
 
-    private int turn = 1;
-    private int playerNumber = 1;
+    private int turn = -1;
+    private int playerNumber = -1;
 
     private bool down;
     private List<GameObject> tokens = new List<GameObject>();
@@ -98,6 +100,8 @@ public class Game : MonoBehaviour
                     // GAME OVER
                     print("WINNER WINNER CHICKEN DINNER: " + (result.winner == 0 ? "BLUE" : "WHITE"));
                 }
+                else
+                    turn = 1 - turn;
             }
             else
             {
@@ -115,15 +119,40 @@ public class Game : MonoBehaviour
         down = false;
     }
 
-    void ClearBoard()
+    public void OpenGame(GameLogic.Tile[] grid, int turn, int colour, string blue, string white)
     {
-        foreach (GameObject token in tokens)
-            Destroy(token);
+        if (grid != null)
+        {
+            ClearBoard();
+            for (int i = 0; i < grid.Length; i++)
+                if (grid[i] != GameLogic.Tile.EMPTY)
+                    CreateToken(i, grid[i]);
 
-        tokens.Clear();
+            GameLogic.SetGrid(grid);
+        }
+        else
+            NewGame();
+
+        if (blue != null)
+        {
+            playerNames[0].text = blue;
+            if (turn == 0)
+                playerNameOutlines[0].enabled = true;
+        }
+
+        if (white != null)
+        {
+            playerNames[1].text = white;
+            if (turn == 1)
+                playerNameOutlines[1].enabled = true;
+        }
+
+        playerNumber = colour;
+        this.turn = turn;
+        GameLogic.SetPlayerAndTurn(colour, turn);
     }
 
-    public void NewGame()
+    void NewGame()
     {
         ClearBoard();
 
@@ -136,14 +165,12 @@ public class Game : MonoBehaviour
         GameLogic.NewGame();
     }
 
-    public void GenerateBoard(GameLogic.Tile[] grid)
+    void ClearBoard()
     {
-        ClearBoard();
-        for (int i = 0; i < grid.Length; i++)
-            if (grid[i] != GameLogic.Tile.EMPTY)
-                CreateToken(i, grid[i]);
+        foreach (GameObject token in tokens)
+            Destroy(token);
 
-        GameLogic.SetGrid(grid);
+        tokens.Clear();
     }
 
     private void CreateToken(int index, GameLogic.Tile tile)

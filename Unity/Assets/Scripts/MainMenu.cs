@@ -106,7 +106,6 @@ public class MainMenu : MonoBehaviour
     public void StartGame()
     {
         GoToGame(null, 0, colour == 0 ? username : null, colour == 1 ? username : null);
-        colour = -1;
     }
 
     public void RequestGamesList()
@@ -156,10 +155,13 @@ public class MainMenu : MonoBehaviour
             for (int i = 0; i < canvas.childCount; i++)
                 canvas.GetChild(i).gameObject.SetActive(false);
 
-            if (grid != null)
-                game.GenerateBoard(grid);
-            else
-                game.NewGame();
+            if (colour == -1)
+                if (blue == username)
+                    colour = 0;
+                else if (white == username)
+                    colour = 1;
+
+            game.OpenGame(grid, turn, colour, blue, white);
 
             gameScreen.SetActive(true);
             gameBoard.SetActive(true);

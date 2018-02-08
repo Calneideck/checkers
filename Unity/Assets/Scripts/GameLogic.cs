@@ -45,7 +45,13 @@ public static class GameLogic
 
     public static void SetGrid(Tile[] grid)
     {
-        GameLogic.grid = grid;   
+        GameLogic.grid = grid;
+    }
+
+    public static void SetPlayerAndTurn(int playerNumber, int turn)
+    {
+        GameLogic.playerNumber = playerNumber;
+        playersTurn = turn;
     }
 
     public static Result Move(int tileNumber, int targetTileNumber)
@@ -120,7 +126,7 @@ public static class GameLogic
                 playersTurn = 1 - playersTurn;
 
                 // TESTING - REMOVE THIS LINE
-                playerNumber = 1 - playerNumber;
+                //playerNumber = 1 - playerNumber;
 
                 moved = -1;
                 CheckJumpAvail();
@@ -142,15 +148,12 @@ public static class GameLogic
         if (winner != -1)
             return new int[0];
 
-        if (playerNumber != OwnerOfTile(tileNumber))
-            return new int[0];
-
         List<int> moves = new List<int>();
 
-        if (playerNumber == 0 || IsKing(tileNumber))
+        if (OwnerOfTile(tileNumber) == 0 || IsKing(tileNumber))
             BlueMoves(moves, tileNumber);
 
-        if (playerNumber == 1 || IsKing(tileNumber))
+        if (OwnerOfTile(tileNumber) == 1 || IsKing(tileNumber))
             WhiteMoves(moves, tileNumber);
 
         return moves.ToArray();
