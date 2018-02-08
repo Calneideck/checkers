@@ -40,11 +40,14 @@ public class MainMenu : MonoBehaviour
     [Header("Join Game")]
     public InputField joinGameId;
 
-    private string gameId = null;
+    private string gameId;
+    private int colour = -1;
+    private string username;
 
     public void Register()
     {
         ShowWaiting();
+        username = regUserField.text;
         tcp.LoginRegister(false, regUserField.text, regPasswordField.text, RegisterResult);
     }
 
@@ -61,6 +64,7 @@ public class MainMenu : MonoBehaviour
     public void Login()
     {
         ShowWaiting();
+        username = loginUserField.text;
         tcp.LoginRegister(true, loginUserField.text, loginPasswordField.text, LoginResult);
     }
 
@@ -77,14 +81,17 @@ public class MainMenu : MonoBehaviour
     public void CreateGame()
     {
         ShowWaiting();
-        int colour = colourDropdown.value;
+        colour = colourDropdown.value;
         tcp.CreateGame(colour, CreateGameResult);
     }
 
     void CreateGameResult(string gameId)
     {
         if (string.IsNullOrEmpty(gameId))
+        {
+            colour = -1;
             mainMenuScreen.SetActive(true);
+        }
         else
         {
             // Success
@@ -98,7 +105,8 @@ public class MainMenu : MonoBehaviour
 
     public void StartGame()
     {
-        GoToGame(null, 0, null, null);
+        GoToGame(null, 0, colour == 0 ? username : null, colour == 1 ? username : null);
+        colour = -1;
     }
 
     public void RequestGamesList()
@@ -127,12 +135,13 @@ public class MainMenu : MonoBehaviour
     {
         ShowWaiting();
         this.gameId = gameId;
+        RemoveGamesList();
         tcp.JoinResumeGame(gameId, GoToGame);
     }
 
     public void JoinGame()
     {
-        if (!string.IsNullOrEmpty(joinGameId.text) && joinGameId.text.Length == 10)
+        if (!string.IsNullOrEmpty(joinGameId.text) && joinGameId.text.Length == 5)
         {
             ShowWaiting();
             gameId = joinGameId.text;
@@ -142,7 +151,7 @@ public class MainMenu : MonoBehaviour
 
     void GoToGame(GameLogic.Tile[] grid, int turn, string blue, string white)
     {
-        if (gameId != null)
+        if (gameId != null && !(blue == null && white == null))
         {
             for (int i = 0; i < canvas.childCount; i++)
                 canvas.GetChild(i).gameObject.SetActive(false);
@@ -155,15 +164,23 @@ public class MainMenu : MonoBehaviour
             gameScreen.SetActive(true);
             gameBoard.SetActive(true);
         }
+        else
+            mainMenuScreen.SetActive(true);
 
         waitingScreen.SetActive(false);
     }
 
     void ShowWaiting()
     {
-        for (int i = 0; i < canvas.childCount; i++)
+        for (int i = 0; i < canvas.childCount - 1; i++)
             canvas.GetChild(i).gameObject.SetActive(false);
 
         waitingScreen.SetActive(true);
+    }
+
+    public void RemoveGamesList()
+    {
+        for (int i = 0; i < scrollRect.childCount; i++)
+            Destroy(scrollRect.GetChild(i).gameObject);
     }
 }

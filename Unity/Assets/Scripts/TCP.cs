@@ -50,30 +50,51 @@ public class TCP : MonoBehaviour
             {
                 case ClientType.LOGIN_RESULT:
                     bool result = ReadBool(bytes, ref offset);
+                    if (!result)
+                        Toast.ShowMessage(ReadString(bytes, ref offset));
+
                     if (registerCallback != null)
                         registerCallback.Invoke(result);
                     else if (loginCallback != null)
                         loginCallback.Invoke(result);
+
                     break;
 
                 case ClientType.GAME_CREATED:
-                    string gameId = ReadString(bytes, ref offset);
+                    result = ReadBool(bytes, ref offset);
+                    string gameId = null;
+
+                    if (result)
+                        gameId = ReadString(bytes, ref offset);
+                    else
+                        Toast.ShowMessage(ReadString(bytes, ref offset));
+
                     if (createGameCallback != null)
-                        createGameCallback.Invoke(gameId.Length == 10 ? gameId : null);
+                        createGameCallback.Invoke(gameId.Length == 5 ? gameId : null);
+
                     break;
 
                 case ClientType.GAME_LIST:
-                    string games = ReadString(bytes, ref offset);
+                    result = ReadBool(bytes, ref offset);
                     string[] list = null;
-                    if (!string.IsNullOrEmpty(games))
-                        list = games.Split(',');
+
+                    if (result)
+                    {
+                        string games = ReadString(bytes, ref offset);
+                        if (!string.IsNullOrEmpty(games))
+                            list = games.Split(',');
+                    }
+                    else
+                        Toast.ShowMessage(ReadString(bytes, ref offset));
+
                     if (requestGamesCallback != null)
                         requestGamesCallback.Invoke(list);
+
                     break;
 
                 case ClientType.GAME_STATE:
-                    bool result2 = ReadBool(bytes, ref offset);
-                    if (result2)
+                    result = ReadBool(bytes, ref offset);
+                    if (result)
                     {
                         string boardString = ReadString(bytes, ref offset);
                         if (boardString.Length == 99)
@@ -91,10 +112,14 @@ public class TCP : MonoBehaviour
                         }
                         else if (joinResumeCallback != null)
                             joinResumeCallback.Invoke(null, 0, null, null);
-
                     }
-                    else if (joinResumeCallback != null)
-                        joinResumeCallback.Invoke(null, 0, null, null);
+                    else
+                    {
+                        Toast.ShowMessage(ReadString(bytes, ref offset));
+                        if (joinResumeCallback != null)
+                            joinResumeCallback.Invoke(null, 0, null, null);
+                    }
+
                     break;
             }
         }

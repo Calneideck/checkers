@@ -21,23 +21,21 @@ NET.createServer(function(socket) {
     if (ServerType[id] == 'LOGIN') {
       var username = readString(data);
       var password = readString(data);
+      clients[socket].offset = 0;
 
-      if (!username || username.length == 0 || !password || password.length == 0) {
-        var buffer = Buffer.alloc(8);
-        buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
-        buffer.writeInt32LE(0, 4);
-        socket.write(buffer);
-        return;
-      }
+      if (!username || username.length == 0 || !password || password.length == 0)
+        return basicFail(socket, 'LOGIN_RESULT', 'Unable to login');
 
-      DB.login(username, password, function(result) {
-        var buffer = Buffer.alloc(8);
-        buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
-        buffer.writeInt32LE(result ? 1 : 0, 4);
-        socket.write(buffer);
-        if (result) {
-          console.log(result, 'logged in');
-          clients[socket].username = result;
+      DB.login(username, password, function(err, username) {
+        if (err)
+          basicFail(socket, 'LOGIN_RESULT', err);
+        else {
+          var buffer = Buffer.alloc(5);
+          writeInt(socket, buffer, ClientType.indexOf('LOGIN_RESULT'));
+          writeBool(socket, buffer, true);
+          socket.write(buffer);
+          console.log(username, 'logged in');
+          clients[socket].username = username;
         }
       });
     }
@@ -45,88 +43,87 @@ NET.createServer(function(socket) {
     else if (ServerType[id] == 'REGISTER') {
       var username = readString(data);
       var password = readString(data);
-      if (username && password && username.length > 0 && password.length > 0)
-      {
-        DB.createUser(username, password, function(result) {
+      clients[socket].offset = 0;
+
+      if (!username || username.length == 0 || !password || password.length == 0)
+        return basicFail(socket, 'LOGIN_RESULT', 'Unable to register');
+
+      DB.createUser(username, password, function(err, username) {
+        if (err)
+          basicFail(socket, 'LOGIN_RESULT', err);
+        else {
           var buffer = Buffer.alloc(5);
-          buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
-          buffer[4] = result ? 1 : 0;
+          writeInt(socket, buffer, ClientType.indexOf('LOGIN_RESULT'));
+          writeBool(socket, buffer, true);
           socket.write(buffer);
-          if (result) {
-            console.log(result, 'registered');
-            clients[socket].username = result;
-          }
-        });
-      }
-      else {
-        var buffer = Buffer.alloc(5);
-        buffer.writeInt32LE(ClientType.indexOf('LOGIN_RESULT'), 0);
-        buffer[4] = 0;
-        socket.write(buffer);
-      }
+          console.log(username, 'registered');
+          clients[socket].username = username;
+        }
+      });
     }
 
     else if (ServerType[id] == 'CREATE_GAME') {
       var colour = readInt(data); // 0 = blue, 1 = white
+      clients[socket].offset = 0;
+
       if (colour != 0 && colour != 1)
-        return;
-      DB.createGame(clients[socket].username, colour, function(gameId) {
-        var buffer = Buffer.alloc(18);
-        buffer.writeInt32LE(ClientType.indexOf('GAME_CREATED'), 0);
-        if (gameId) {
-          buffer.writeInt32LE(10, 4);
-          buffer.write(gameId, 8, 10, 'ascii');
+        return basicFail(socket, 'GAME_CREATED', 'Unable to register');
+        
+      DB.createGame(clients[socket].username, colour, function(err, gameId) {
+        if (err)
+          basicFail(socket, 'GAME_CREATED', err);
+        else {
+          var buffer = Buffer.alloc(14);
+          writeInt(socket, buffer, ClientType.indexOf('GAME_CREATED'));
+          writeBool(socket, buffer, true);
+          writeString(socket, buffer, gameId);
+          socket.write(buffer);
           console.log('game created:', gameId)
         }
-        socket.write(buffer);
       });
     }
 
     else if (ServerType[id] == 'REQUEST_GAMES') {
-      DB.GetUserGames(clients[socket].username, function(gamesList) {
-        console.log('Games List:', gamesList);
-          var buffer = Buffer.alloc(8 + (gamesList ? gamesList.length : 0));
-          buffer.writeInt32LE(ClientType.indexOf('GAME_LIST'), 0);
-        if (gamesList) {
-          buffer.writeInt32LE(gamesList.length, 4);
-          buffer.write(gamesList, 8, gamesList.length, 'ascii');
+      clients[socket].offset = 0;
+      DB.getUserGames(clients[socket].username, function(err, gamesList) {
+        if (err)
+          basicFail(socket, 'GAME_LIST', err);
+        else {
+          var buffer = Buffer.alloc(9 + (gamesList ? gamesList.length : 0));
+          writeInt(socket, buffer, ClientType.indexOf('GAME_LIST'));
+          writeBool(socket, buffer, true);
+          writeString(socket, buffer, gamesList);
+          socket.write(buffer);
         }
-        else
-          buffer.writeInt32LE(0, 4);
-
-        socket.write(buffer);
       });
     }
 
     else if (ServerType[id] == 'JOIN_RESUME_GAME') {
       var gameId = readString(data);
+      clients[socket].offset = 0;
+
       if (gameId) {
-        DB.GetGame(gameId, clients[socket].username, function(success, board, turn, blue, white) {
-          console.log('success', success);
-          if (success && board.length == 99) {
+        DB.getGame(gameId, clients[socket].username, function(err, board, turn, blue, white) {
+          if (err || board.length != 99)
+            basicFail(socket, 'GAME_STATE', err ? err : 'Unable to get game data');
+          else {
             console.log('board', board);
             console.log('turn', turn);
             console.log('blue', blue);
             console.log('white', white);
             var buffer = Buffer.alloc(120 + blue.length + white.length);
-            buffer.writeInt32LE(ClientType.indexOf('GAME_STATE'), 0);
-            buffer[4] = 1;
-            buffer.writeInt32LE(99, 5);
-            buffer.write(board, 9, 99, 'ascii');
-            buffer.writeInt32LE(turn, 108);
-            buffer.writeInt32LE(blue.length, 112);
-            buffer.write(blue, 116, blue.length, 'ascii');
-            buffer.writeInt32LE(white.length, 116 + blue.length);
-            buffer.write(white, 120 + blue.length, white.length, 'ascii');
-            socket.write(buffer);
-          } else {
-            var buffer = Buffer.alloc(5);
-            buffer.writeInt32LE(ClientType.indexOf('GAME_STATE'), 0);
-            buffer[4] = 0;
+            writeInt(socket, buffer, ClientType.indexOf('GAME_STATE'));
+            writeBool(socket, buffer, true);
+            writeString(socket, buffer, board);
+            writeInt(socket, buffer, turn);
+            writeString(socket, buffer, blue);
+            writeString(socket, buffer, white);
             socket.write(buffer);
           }
         });
       }
+      else
+        basicFail(socket, 'GAME_STATE', 'Invalid, game ID');
     }
 
     else if (ServerType[id] == 'MOVE') {
@@ -137,6 +134,14 @@ NET.createServer(function(socket) {
 
     }
   });
+
+  function basicFail(socket, clientType, err) {
+    var buffer = Buffer.alloc(9 + err.length);
+    writeInt(socket, buffer, ClientType.indexOf(clientType))
+    writeBool(socket, buffer, false);
+    writeString(socket, buffer, err);
+    socket.write(buffer);
+  }
 
   function readInt(buffer) {
     if (clients[socket].offset + 4 <= buffer.length) {
@@ -158,6 +163,31 @@ NET.createServer(function(socket) {
       }
 
     return null;
+  }
+
+  function writeInt(socket, buffer, data) {
+    var offset = clients[socket].offset;
+    buffer.writeInt32LE(data, offset);
+    clients[socket].offset += 4;
+  }
+
+  function writeString(socket, buffer, data) {
+    writeInt(socket, buffer, data ? data.length : 0);
+    var offset = clients[socket].offset;
+    if (data)
+      buffer.write(data, offset, data.length, 'ascii');
+
+    clients[socket].offset += data ? data.length : 0;
+  }
+
+  function writeBool(socket, buffer, data) {
+    var offset = clients[socket].offset;
+    if (data == true)
+      buffer[offset] = 1;
+    else if (data == false)
+      buffer[offset] = 0;
+
+    clients[socket].offset += 1;
   }
 
   // Remove the client from the list when it leaves

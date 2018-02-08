@@ -14,32 +14,34 @@ module.exports = {
         };
         DB.getItem(params, function (err, data) {
             if (err || Object.getOwnPropertyNames(data).length == 0) {
-                if (err)
-                    console.log(err);
-
-                callback(null);
+                if (err) {
+                    console.log('login: ', err);
+                    callback('Could not login', null);
+                }
+                else
+                    callback('Username or password incorrect', null);
             }
+            // Compare hashes
             else if (data.Item.password.S.toLowerCase() == password.toLowerCase())
-                callback(username);
+                callback(null, username);
             else
-                callback(null);
+                callback('Username or password incorrect', null);
         });
     },
 
     createUser: function (username, password, callback) {
         username = username.toLowerCase();
-        if (username.length == 0 || username.length > 20) {
-            return callback(null);
-        }
+        if (username.length == 0 || username.length > 20)
+            return callback('Username must be between 1 and 20 characters', null);
 
         checkUser(username, function (err, user_result) {
-            if (err)
-                return callback(null);
-
-            if (user_result) {
-                console.log('user already exists');
-                return callback(null);
+            if (err) {
+                console.log('createUserCheckUser: ', err);
+                return callback('Unable to register', null);
             }
+
+            if (user_result)
+                return callback('Username is taken', null);
 
             var params = {
                 Item: {
@@ -50,11 +52,11 @@ module.exports = {
             };
             DB.putItem(params, function (err, data) {
                 if (err) {
-                    console.log(err);
-                    callback(null);
+                    console.log('createUserPutItem: ', err);
+                    callback('Unable to register', null);
                 }
                 else
-                    callback(username);
+                    callback(null, username);
             });
         });
     },
@@ -63,7 +65,7 @@ module.exports = {
         var board = createBoard();
         var params = {
             Item: {
-                'game_id': { S: '0000000000' },
+                'game_id': { S: '00000' },
                 'turn': { S: '0' },
                 'board': { S: board }
             },
@@ -81,21 +83,21 @@ module.exports = {
         var gameId = getGameID();
         // Check if game already exists with this id
         checkGame(gameId, function(err, result) {
-            if (err)
-                return callback(null);
-
-            if (result) {
-                module.exports.createGame(username, colour, callback);
-                return;
+            if (err) {
+                console.log('createGameCheckGameId: ', err);
+                return callback('Unable to create game');
             }
+
+            if (result)
+                return module.exports.createGame(username, colour, callback);
 
             // All clear
             params.Item.game_id.S = gameId;
             // Create the game in the game table
             DB.putItem(params, function (err, data) {
                 if (err) {
-                    console.log('createGame', err);
-                    callback(null);
+                    console.log('createGamePutItem', err);
+                    callback('Unable to create game');
                 }
                 else {
                     // Get 'games' attribute in users table
@@ -111,7 +113,7 @@ module.exports = {
                             if (err)
                                 console.log('createGameGetUser:', err);
             
-                            callback(null);
+                            callback('Unable to create game');
                         }
                         else {
                             // Update 'games' attribute in users table
@@ -134,10 +136,10 @@ module.exports = {
                             DB.updateItem(params, function(err, data) {
                                 if (err) {
                                     console.log('createGameUpdateUser:', err);
-                                    callback(null);
+                                    callback('Unable to create game');
                                 }
                                 else
-                                    callback(gameId);
+                                    callback(null, gameId);
                             });
                         }
                     });
@@ -146,7 +148,7 @@ module.exports = {
         });
     },
 
-    GetUserGames: function(username, callback) {
+    getUserGames: function(username, callback) {
         username = username.toLowerCase();
         var params = {
             Key: {
@@ -158,18 +160,18 @@ module.exports = {
         DB.getItem(params, function (err, data) {
             if (err || Object.getOwnPropertyNames(data).length == 0) {
                 if (err)
-                    console.log(err);
+                    console.log('getUserGames: ', err);
 
-                callback(null);
+                callback('Unable to get games');
             }
             else if (data.Item.games)
-                callback(data.Item.games.S);
+                callback(null, data.Item.games.S);
             else
-                callback(null);
+                callback(null, null);
         });
     },
 
-    GetGame: function(gameId, username, callback) {
+    getGame: function(gameId, username, callback) {
         gameId = gameId.toUpperCase();
         username = username.toLowerCase();
         var params = {
@@ -182,9 +184,9 @@ module.exports = {
         DB.getItem(params, function (err, data) {
             if (err || Object.getOwnPropertyNames(data).length == 0) {
                 if (err)
-                    console.log(err);
+                    console.log('getGame: ', err);
 
-                callback(false);
+                callback('Unable to get game data');
             }
             else {
                 var blue = '';
@@ -199,9 +201,10 @@ module.exports = {
                 var turn = data.Item.turn.S;
 
                 if (blue == username || white == username)
-                    callback(true, data.Item.board.S, data.Item.turn.S, blue, white);
+                    // user is in game already - all good
+                    callback(null, data.Item.board.S, data.Item.turn.S, blue, white);
                 else if (blue == '') {
-                    // Save username to blue
+                    // user joining game as blue
                     blue = username;
                     params = {
                         Key: {
@@ -215,11 +218,10 @@ module.exports = {
                     };
                     DB.updateItem(params, function(err, data) {
                         if (err) {
-                            console.log('updateBlueUsername:', err);
-                            callback(false);
+                            console.log('updateBlueUsername: ', err);
+                            callback('Unable to get game data');
                         }
                         else {
-                            console.log(username, 'has taken the blue slot');
                             // Get 'games' attribute in users table
                             var params = {
                                 Key: {
@@ -233,7 +235,7 @@ module.exports = {
                                     if (err)
                                         console.log('createGameGetUser:', err);
                     
-                                    callback(null);
+                                    callback('Unable to get game data');
                                 }
                                 else {
                                     // Update 'games' attribute in users table
@@ -255,11 +257,11 @@ module.exports = {
                                     };
                                     DB.updateItem(params, function(err, data) {
                                         if (err) {
-                                            console.log('updateBlueUsernameGamesList:', err);
-                                            callback(null);
+                                            console.log('updateBlueUsernameGamesList: ', err);
+                                            callback('Unable to get game data');
                                         }
                                         else
-                                            callback(true, board, turn, blue, white);
+                                            callback(null, board, turn, blue, white);
                                     });
                                 }
                             });
@@ -267,7 +269,7 @@ module.exports = {
                     });
                 }
                 else if (white == '') {
-                    // Save username to white
+                    // user is joining as white
                     white = username;
                     params = {
                         Key: {
@@ -281,12 +283,10 @@ module.exports = {
                     };
                     DB.updateItem(params, function(err, data) {
                         if (err) {
-                            console.log('updateWhiteUsername:', err);
-                            callback(false);
+                            console.log('updateWhiteUsername: ', err);
+                            callback('Unable to get game data');
                         }
                         else {
-                            console.log(username, 'has taken the white slot');
-
                             // Get 'games' attribute in users table
                             var params = {
                                 Key: {
@@ -300,7 +300,7 @@ module.exports = {
                                     if (err)
                                         console.log('createGameGetUser:', err);
                     
-                                    callback(null);
+                                    callback('Unable to get game data');
                                 }
                                 else {
                                     // Update 'games' attribute in users table
@@ -323,10 +323,10 @@ module.exports = {
                                     DB.updateItem(params, function(err, data) {
                                         if (err) {
                                             console.log('updateBlueUsernameGamesList:', err);
-                                            callback(null);
+                                            callback('Unable to get game data');
                                         }
                                         else
-                                            callback(true, board, turn, blue, white);
+                                            callback(null, board, turn, blue, white);
                                     });
                                 }
                             });
@@ -334,7 +334,7 @@ module.exports = {
                     });
                 }
                 else
-                    callback(false);
+                    callback('Game is full', null, 0, null, null);
             }
         });
     }
@@ -380,7 +380,7 @@ function checkGame(gameId, callback) {
 
 function getGameID() {
     var id = '';
-    for (var i = 0; i < 10; i++)
+    for (var i = 0; i < 5; i++)
         id += chars[Math.floor(Math.random() * chars.length)].toUpperCase();
 
     return id;
