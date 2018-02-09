@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 public class MainMenu : MonoBehaviour
@@ -105,7 +103,7 @@ public class MainMenu : MonoBehaviour
 
     public void StartGame()
     {
-        GoToGame(null, 0, colour == 0 ? username : null, colour == 1 ? username : null);
+        GoToGame(new Game.GameData(null, 0, colour == 0 ? username : null, colour == 1 ? username : null, -1));
     }
 
     public void RequestGamesList()
@@ -148,21 +146,26 @@ public class MainMenu : MonoBehaviour
         }
     }
 
-    void GoToGame(GameLogic.Tile[] grid, int turn, string blue, string white)
+    void GoToGame(Game.GameData gameData)
     {
-        if (gameId != null && !(blue == null && white == null))
+        if (gameId != null && !(gameData.blue == null && gameData.white == null))
         {
-            for (int i = 0; i < canvas.childCount; i++)
+            for (int i = 0; i < canvas.childCount - 1; i++)
                 canvas.GetChild(i).gameObject.SetActive(false);
 
             if (colour == -1)
-                if (blue == username)
+                if (gameData.blue == username)
                     colour = 0;
-                else if (white == username)
+                else if (gameData.white == username)
                     colour = 1;
 
-            game.OpenGame(grid, turn, colour, blue, white);
+            if (gameData.winner != -1)
+                if (gameData.winner == colour)
+                    Toast.ShowMessage("Winner Winner Chicken Dinner!");
+                else
+                    Toast.ShowMessage("Better luck next time");
 
+            game.OpenGame(gameData.grid, gameData.turn, colour, gameData.blue, gameData.white, gameData.winner);
             gameScreen.SetActive(true);
             gameBoard.SetActive(true);
         }

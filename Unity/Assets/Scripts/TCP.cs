@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 public class TCP : MonoBehaviour
 {
     private enum ServerType { LOGIN, REGISTER, CREATE_GAME, REQUEST_GAMES, JOIN_RESUME_GAME, MOVE, SURRENDER };
-    private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE };
+    private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE, MOVE_RESULT };
 
     private TcpClient client = new TcpClient();
     private NetworkStream stream;
@@ -16,14 +16,14 @@ public class TCP : MonoBehaviour
     private event Action<bool> loginCallback;
     private event Action<bool> registerCallback;
     private event Action<string> createGameCallback;
-    private event Action<GameLogic.Tile[], int, string, string> joinResumeCallback;
+    private event Action<Game.GameData> joinResumeCallback;
     private event Action<string[]> requestGamesCallback;
 
     void Start()
     {
         try
         {
-            client.Connect("127.0.0.1", 5000);
+            client.Connect("192.168.0.245", 5000);
             stream = client.GetStream();
             Debug.Log("Connected");
         }
@@ -107,19 +107,33 @@ public class TCP : MonoBehaviour
                             int turn = ReadInt(bytes, ref offset);
                             string blue = ReadString(bytes, ref offset);
                             string white = ReadString(bytes, ref offset);
+                            int winner = ReadInt(bytes, ref offset);
                             if (joinResumeCallback != null)
-                                joinResumeCallback.Invoke(board, turn, blue, white);
+                                joinResumeCallback.Invoke(new Game.GameData(board, turn, blue, white, winner));
                         }
                         else if (joinResumeCallback != null)
-                            joinResumeCallback.Invoke(null, 0, null, null);
+                            joinResumeCallback.Invoke(new Game.GameData());
                     }
                     else
                     {
                         Toast.ShowMessage(ReadString(bytes, ref offset));
                         if (joinResumeCallback != null)
-                            joinResumeCallback.Invoke(null, 0, null, null);
+                            joinResumeCallback.Invoke(new Game.GameData());
                     }
 
+                    break;
+
+                case ClientType.MOVE_RESULT:
+                    result = ReadBool(bytes, ref offset);
+                    if (result)
+                    {
+                        Toast.ShowMessage("Move was successful");
+                        int winner = ReadInt(bytes, ref offset);
+                        if (winner != -1)
+                            Toast.ShowMessage("Winner Winner Chicken Dinner");
+                    }
+                    else
+                        Toast.ShowMessage(ReadString(bytes, ref offset));
                     break;
             }
         }
@@ -154,7 +168,7 @@ public class TCP : MonoBehaviour
         stream.Write(b.ToArray(), 0, b.Count);
     }
 
-    public void JoinResumeGame(string gameId, Action<GameLogic.Tile[], int, string, string> callback)
+    public void JoinResumeGame(string gameId, Action<Game.GameData> callback)
     {
         joinResumeCallback = callback;
         List<byte> b = new List<byte>();
@@ -168,6 +182,18 @@ public class TCP : MonoBehaviour
         requestGamesCallback = callback;
         List<byte> b = new List<byte>();
         WriteInt(b, (int)ServerType.REQUEST_GAMES);
+        stream.Write(b.ToArray(), 0, b.Count);
+    }
+
+    public void Move(int tile, int[] moves)
+    {
+        List<byte> b = new List<byte>();
+        WriteInt(b, (int)ServerType.MOVE);
+        WriteInt(b, tile);
+        WriteInt(b, moves.Length);
+        for (int i = 0; i < moves.Length; i++)
+            WriteInt(b, moves[i]);
+
         stream.Write(b.ToArray(), 0, b.Count);
     }
 

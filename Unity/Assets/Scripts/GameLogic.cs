@@ -10,15 +10,13 @@ public static class GameLogic
         public int removedToken;
         public int[] nextMoves;
         public bool king;
-        public int winner;
 
-        public Result(bool success, int removedToken, int[] nextMoves, bool king, int winner)
+        public Result(bool success, int removedToken, int[] nextMoves, bool king)
         {
             this.success = success;
             this.removedToken = removedToken;
             this.nextMoves = nextMoves;
             this.king = king;
-            this.winner = winner;
         }
     }
 
@@ -27,7 +25,7 @@ public static class GameLogic
     private static int moved = -1;
     private static int playersTurn;
     private static bool jumpsAvail;
-    private static int winner = -1;
+    private static int winner;
 
     public static void NewGame()
     {
@@ -48,31 +46,34 @@ public static class GameLogic
         GameLogic.grid = grid;
     }
 
-    public static void SetPlayerAndTurn(int playerNumber, int turn)
+    public static void SetInfo(int playerNumber, int turn, int winner)
     {
         GameLogic.playerNumber = playerNumber;
         playersTurn = turn;
+        GameLogic.winner = winner;
+        GameLogic.moved = -1;
+        CheckJumpAvail();
     }
 
     public static Result Move(int tileNumber, int targetTileNumber)
     {
         if (tileNumber < 0 || tileNumber >= 50 || targetTileNumber < 0 || targetTileNumber >= 50)
-            return new Result(false, -1, null, false, -1);
+            return new Result(false, -1, null, false);
 
         // if game is over
         if (winner != -1)
-            return new Result(false, -1, null, false, -1);
+            return new Result(false, -1, null, false);
 
         if (playerNumber != playersTurn)
-            return new Result(false, -1, null, false, -1);
+            return new Result(false, -1, null, false);
 
         // Can only move own tokens
         if (playerNumber != OwnerOfTile(tileNumber))
-            return new Result(false, -1, null, false, -1);
+            return new Result(false, -1, null, false);
 
         // Can only move to an empty tile
         if (grid[targetTileNumber] != Tile.EMPTY)
-            return new Result(false, -1, null, false, -1);
+            return new Result(false, -1, null, false);
 
         int result = -1;
         if (playerNumber == 0 || IsKing(tileNumber))
@@ -110,34 +111,27 @@ public static class GameLogic
             Result fullResult;
             // Only get next avail moves if jumped over opponent
             if (System.Math.Abs(GetRow(tileNumber) - GetRow(targetTileNumber)) == 1)
-                fullResult = new Result(true, result, new int[0], king, -1);
+                fullResult = new Result(true, result, new int[0], king);
             else
             {
                 // Jumped over so may get to continue
                 if (result >= 0 && result < 50)
                     grid[result] = Tile.EMPTY;
 
-                fullResult = new Result(true, result, GetAvailMoves(targetTileNumber), king, -1);
+                fullResult = new Result(true, result, GetAvailMoves(targetTileNumber), king);
             }
 
             if (fullResult.nextMoves.Length == 0)
             {
                 // Set other player's turn
                 playersTurn = 1 - playersTurn;
-
-                // TESTING - REMOVE THIS LINE
-                //playerNumber = 1 - playerNumber;
-
                 moved = -1;
-                CheckJumpAvail();
-                winner = CheckWinner();
-                fullResult.winner = winner;
             }
 
             return fullResult;
         }
         else
-            return new Result(false, -1, null, false, -1);
+            return new Result(false, -1, null, false);
     }
 
     public static int[] GetAvailMoves(int tileNumber)
@@ -175,14 +169,6 @@ public static class GameLogic
             }
     }
 
-    /// <summary>
-    /// Returns 1 to 10
-    /// </summary>
-    private static int GetRow(int tile)
-    {
-        return (int)System.Math.Ceiling((tile + 1) / 5f);
-    }
-
     private static int OwnerOfTile(int tileNumber)
     {
         Tile tile = grid[tileNumber];
@@ -198,22 +184,6 @@ public static class GameLogic
     {
         Tile tile = grid[tileNumber];
         return tile == Tile.BLUE_KING || tile == Tile.WHITE_KING;
-    }
-
-    private static int CheckWinner()
-    {
-        bool allGone = true;
-        bool noMoves = true;
-
-        for (int i = 0; i < grid.Length; i++)
-            if (OwnerOfTile(i) == playersTurn)
-            {
-                allGone = false;
-                if (GetAvailMoves(i).Length > 0)
-                    noMoves = false;
-            }
-
-        return allGone || noMoves ? 1 - playersTurn : -1;
     }
 
     private static void BlueMoves(List<int> moves, int tileNumber)
@@ -409,6 +379,14 @@ public static class GameLogic
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// Returns 1 to 10
+    /// </summary>
+    private static int GetRow(int tile)
+    {
+        return (int)System.Math.Ceiling((tile + 1) / 5f);
     }
 
     private static bool OddRow(int tile)

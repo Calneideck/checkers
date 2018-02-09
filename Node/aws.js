@@ -67,7 +67,8 @@ module.exports = {
             Item: {
                 'game_id': { S: '00000' },
                 'turn': { S: '0' },
-                'board': { S: board }
+                'board': { S: board },
+                'winner': { S: '-1' }
             },
             TableName: 'checkers_games'
         };
@@ -136,7 +137,7 @@ module.exports = {
             Key: {
                 'game_id': { S: gameId }
             },
-            ProjectionExpression: 'board, turn, blue, white',
+            ProjectionExpression: 'board, turn, blue, white, winner',
             TableName: 'checkers_games'
         };
         DB.getItem(params, function (err, data) {
@@ -157,17 +158,42 @@ module.exports = {
 
                 var board = data.Item.board.S;
                 var turn = data.Item.turn.S;
+                var winner = data.Item.winner.S;
 
                 if (blue == username || white == username)
                     // user is in game already - all good
-                    callback(null, data.Item.board.S, data.Item.turn.S, blue, white);
+                    callback(null, board, turn, blue, white, winner);
                 else if (blue == '')
-                    addUserToExistingGame(callback, gameId, board, turn, username, white, true);
+                    addUserToExistingGame(callback, gameId, board, turn, username, white, winner, true);
                 else if (white == '')
-                    addUserToExistingGame(callback, gameId, board, turn, blue, username, false);
+                    addUserToExistingGame(callback, gameId, board, turn, blue, username, winner, false);
                 else
-                    callback('Game is full', null, 0, null, null);
+                    callback('Game is full', null, 0, null, null, -1);
             }
+        });
+    },
+
+    updateGame: function(gameId, board, turn, winner, callback) {
+        gameId = gameId.toUpperCase();
+        var params = {
+            Key: {
+                'game_id': { S: gameId }
+            },
+            TableName: 'checkers_games',
+            UpdateExpression: 'set board = :board, turn = :turn, winner = :winner',
+            ExpressionAttributeValues: { 
+                ':board': { S: board },
+                ':turn': { S: turn.toString() },
+                ':winner': { S: winner.toString() }
+            }
+        };
+        DB.updateItem(params, function(err, data) {
+            if (err) {
+                console.log('updateGame:', err);
+                callback('Unable to update game');
+            }
+            else
+                callback(null);
         });
     }
 }
@@ -256,7 +282,7 @@ function addUserToNewGame(callback, username, gameId) {
     });
 }
 
-function addUserToExistingGame(callback, gameId, board, turn, blue, white, updateBlue) {
+function addUserToExistingGame(callback, gameId, board, turn, blue, white, winner, updateBlue) {
     var params = {
         Key: {
             'game_id': { S: gameId }
@@ -316,7 +342,7 @@ function addUserToExistingGame(callback, gameId, board, turn, blue, white, updat
                             callback('Unable to get game data');
                         }
                         else
-                            callback(null, board, turn, blue, white);
+                            callback(null, board, turn, blue, white, winner);
                     });
                 }
             });

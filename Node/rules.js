@@ -6,43 +6,43 @@ const Tile = {
     WHITE_KING: 4
 };
 
-
 module.exports = {
     move: function(board, playerNumber, turn, tile, moves) {
         if (tile < 0 || tile >= 50)
             return { success: false }
 
-        moves = moves.split(',');
         for (var i = 0; i < moves.length; i++)
-        {
-            moves[i] = Number(moves[i]);
             if (moves[i] < 0 || moves[i] >= 50)
                 return { success: false }
-        }
 
         if (playerNumber != turn)
             return { success: false }
 
+        board = board.split(',');
+
         if (playerNumber != ownerOfTile(board, tile))
             return { success: false }
 
-
-        var nextMoves = []];
+        var nextMoves = [];
+        var jumping = false;
 
         // Iterate through each move (may be multiple if jumping)
         for (var i = 0; i < moves.length; i++) {
+            if (i > 0)
+                tile = moves[i - 1];
+
             var targetTile = moves[i];
             if (board[targetTile] != Tile.EMPTY)
                 return { success: false }
 
-            var jumpsAvail = isJumpAvail(board)
+            var jumpsAvail = jumping ? true : isJumpAvail(board, playerNumber)
             var result = -1;
 
-            if (playerNumber == 0 || isKing(tile))
-                result = blueRules(board, tile, targetTile);
+            if (playerNumber == 0 || isKing(board, tile))
+                result = blueRules(board, playerNumber, tile, targetTile, jumpsAvail, jumping);
 
-            if (result == -1 && (playerNumber == 1 || isKing(tile)))
-                result = whiteRules(board, tile, targetTile);
+            if (result == -1 && (playerNumber == 1 || isKing(board, tile)))
+                result = whiteRules(board, playerNumber, tile, targetTile, jumpsAvail, jumping);
 
             if (result != -1) {
                 // Move the tokens
@@ -59,16 +59,19 @@ module.exports = {
                 // Check if jumped over opponent
                 if (Math.abs(getRow(tile) - getRow(targetTile)) == 2) {
                     // Remove token that got jumped over
-                    if (result >= 0 && result < 50)
+                    if (result >= 0 && result < 50) {
                         board[result] = Tile.EMPTY;
+                        jumping = true;
+                    }
                     else
                         console.log('Inconsistent state!', result)
         
-                    nextMoves = getAvailMoves(board, targetTile);
+                    nextMoves = getAvailMoves(board, playerNumber, targetTile, jumpsAvail, jumping);
                 }
-        
-                if (fullResult.nextMoves.length == 0) {
-                    fullResult.winner = checkWinner();
+
+                fullResult.board = board.join(',');
+                if (nextMoves.length == 0) {
+                    fullResult.winner = checkWinner(board, 1 - turn, 1 - playerNumber, jumpsAvail, jumping);
                     return fullResult;
                 }
             }
@@ -78,28 +81,12 @@ module.exports = {
     }
 }
 
-function getAvailMoves(board, tileNumber)
-{
-    if (tileNumber < 0 || tileNumber >= 50)
-        return null
-
-    var moves = [];
-
-    if (ownerOfTile(tileNumber) == 0 || isKing(tileNumber))
-        blueMoves(moves, tileNumber);
-
-    if (ownerOfTile(tileNumber) == 1 || isKing(tileNumber))
-        whiteMoves(moves, tileNumber);
-
-    return moves;
-}
-
 function isJumpAvail(board, playerNumber)
 {
     for (var i = 0; i < 50; i++)
         if (ownerOfTile(board, i) == playerNumber)
         {
-            var moves = getAvailMoves(board, i);
+            var moves = getAvailMoves(board, playerNumber, i, true, true);
             for (var j = 0; j < moves.length; j++)
                 if (Math.abs(getRow(i) - getRow(moves[j])) == 2)
                     return true;
@@ -108,12 +95,20 @@ function isJumpAvail(board, playerNumber)
     return false;
 }
 
-/// <summary>
-/// Returns 1 to 10
-/// </summary>
-function getRow(tile)
+function getAvailMoves(board, playerNumber, tileNumber, jumpsAvail, jumping)
 {
-    return Math.ceil((tile + 1) / 5);
+    if (tileNumber < 0 || tileNumber >= 50)
+        return null
+
+    var moves = [];
+
+    if (ownerOfTile(board, tileNumber) == 0 || isKing(board, tileNumber))
+        moves = blueMoves(board, playerNumber, tileNumber, moves, jumpsAvail, jumping);
+
+    if (ownerOfTile(board, tileNumber) == 1 || isKing(board, tileNumber))
+        moves = whiteMoves(board, playerNumber, tileNumber, moves, jumpsAvail, jumping);
+
+    return moves;
 }
 
 function ownerOfTile(board, tileNumber)
@@ -133,28 +128,22 @@ function isKing(board, tileNumber)
     return tile == Tile.BLUE_KING || tile == Tile.WHITE_KING;
 }
 
-function checkWinner(board, turn)
+function checkWinner(board, turn, playerNumber)
 {
-    var allGone = true;
-    var noMoves = true;
-
+    var jumpsAvail = isJumpAvail(board, playerNumber);
     for (var i = 0; i < board.length; i++)
-        if (ownerOfTile(i) == turn)
-        {
-            allGone = false;
-            if (getAvailMoves(i).length > 0)
-                noMoves = false;
-        }
+        if (ownerOfTile(board, i) == turn)
+            if (getAvailMoves(board, playerNumber, i, jumpsAvail, false).length > 0)
+                return -1;
 
-    return allGone || noMoves ? 1 - turn : -1;
+    return 1 - turn;
 }
 
-function blueMoves(board, playerNumber, tileNumber, jumpsAvail, jumping)
+function blueMoves(board, playerNumber, tileNumber, moves, jumpsAvail, jumping)
 {
     var row = getRow(tileNumber);
-
     if (row >= 10)
-        return;
+        return moves;
 
     if (!jumping && !jumpsAvail)
     {
@@ -174,29 +163,25 @@ function blueMoves(board, playerNumber, tileNumber, jumpsAvail, jumping)
     }
 
     if (row >= 9)
-        return;
+        return moves;
 
     // Jumping over opponent token
     if (tileNumber + 9 < 50 && board[tileNumber + 9] == Tile.EMPTY && getRow(tileNumber + 9) == row + 2)
-    { 
-        if (ownerOfTile(tileNumber + (oddRow(tileNumber) ? 5 : 4)) == 1 - playerNumber)
+        if (ownerOfTile(board, tileNumber + (oddRow(tileNumber) ? 5 : 4)) == 1 - playerNumber)
             moves.push(tileNumber + 9);
-    }
 
     if (tileNumber + 11 < 50 && board[tileNumber + 11] == Tile.EMPTY && getRow(tileNumber + 11) == row + 2)
-    {
-        if (ownerOfTile(tileNumber + (oddRow(tileNumber) ? 6 : 5)) == 1 - playerNumber)
+        if (ownerOfTile(board, tileNumber + (oddRow(tileNumber) ? 6 : 5)) == 1 - playerNumber)
             moves.push(tileNumber + 11);
-    }
+
+    return moves;
 }
 
-function whiteMoves(board, playerNumber, tileNumber, jumpsAvail, jumping)
+function whiteMoves(board, playerNumber, tileNumber, moves, jumpsAvail, jumping)
 {
     var row = getRow(tileNumber);
-    var moves = [];
-
     if (row <= 1)
-        return;
+        return moves;
 
     if (!jumping && !jumpsAvail)
     {
@@ -216,24 +201,23 @@ function whiteMoves(board, playerNumber, tileNumber, jumpsAvail, jumping)
     }
 
     if (row <= 2)
-        return;
+        return moves;
 
+    // Jumping over opponent token
     if (tileNumber - 9 >= 0 && board[tileNumber - 9] == Tile.EMPTY && getRow(tileNumber - 9) == row - 2)
-    {
-        if (ownerOfTile(tileNumber - (oddRow(tileNumber) ? 4 : 5)) == 1 - playerNumber)
+        if (ownerOfTile(board, tileNumber - (oddRow(tileNumber) ? 4 : 5)) == 1 - playerNumber)
             moves.push(tileNumber - 9);
-    }
 
     if (tileNumber - 11 >= 0 && board[tileNumber - 11] == Tile.EMPTY && getRow(tileNumber - 11) == row - 2)
-    {
-        if (ownerOfTile(tileNumber - (oddRow(tileNumber) ? 5 : 6)) == 1 - playerNumber)
+        if (ownerOfTile(board, tileNumber - (oddRow(tileNumber) ? 5 : 6)) == 1 - playerNumber)
             moves.push(tileNumber - 11);
-    }
+    
+    return moves;
 }
 
-function blueRules(tile, targetTile)
+function blueRules(board, playerNumber, tileNumber, targetTile, jumpsAvail, jumping)
 {
-    var r1 = getRow(tile);
+    var r1 = getRow(tileNumber);
 
     // Can't move beyond last row
     if (r1 >= 10)
@@ -243,44 +227,40 @@ function blueRules(tile, targetTile)
 
     if (r2 == r1 + 1)
     {
-        // Can only continue jumping after jumping once
-        if (moved != -1 || jumpsAvail)
+        if (jumping || jumpsAvail)
             return -1;
 
-        if (targetTile == tile + (oddRow(tile) ? 6 : 4) || targetTile == tile + 5)
+        if (targetTile == tileNumber + (oddRow(tileNumber) ? 6 : 4) || targetTile == tileNumber + 5)
             return 50;
     }
     else if (r2 == r1 + 2)
     {
-        if (moved >= 0 && tile != moved)
-            return -1;
-
         // Jumping over an opponent token
         // Check if valid diagonal jump and tile inbetween has an opponent token on it
-        if (targetTile == tile + 9)
+        if (targetTile == tileNumber + 9)
         {
-            if (oddRow(tile))
+            if (oddRow(tileNumber))
             {
-                if (ownerOfTile(tile + 5) == 1 - playerNumber)
-                    return tile + 5;
+                if (ownerOfTile(board, tileNumber + 5) == 1 - playerNumber)
+                    return tileNumber + 5;
             }
             else
             {
-                if (ownerOfTile(tile + 4) == 1 - playerNumber)
-                    return tile + 4;
+                if (ownerOfTile(board, tileNumber + 4) == 1 - playerNumber)
+                    return tileNumber + 4;
             }
         }
-        else if (targetTile == tile + 11)
+        else if (targetTile == tileNumber + 11)
         {
-            if (oddRow(tile))
+            if (oddRow(tileNumber))
             {
-                if (ownerOfTile(tile + 6) == 1 - playerNumber)
-                    return tile + 6;
+                if (ownerOfTile(board, tileNumber + 6) == 1 - playerNumber)
+                    return tileNumber + 6;
             }
             else
             {
-                if (ownerOfTile(tile + 5) == 1 - playerNumber)
-                    return tile + 5;
+                if (ownerOfTile(board, tileNumber + 5) == 1 - playerNumber)
+                    return tileNumber + 5;
             }
         }
     }
@@ -288,61 +268,64 @@ function blueRules(tile, targetTile)
     return -1;
 }
 
-private static int WhiteRules(int tile, int targetTile)
+function whiteRules(board, playerNumber, tileNumber, targetTile, jumpsAvail, jumping)
 {
-    int r1 = getRow(tile);
+    var r1 = getRow(tileNumber);
 
     // Can't move beyond last row
     if (r1 <= 1)
         return -1;
 
-    int r2 = getRow(targetTile);
+    var r2 = getRow(targetTile);
 
     if (r2 == r1 - 1)
     {
         // Can only continue jumping after jumping once
-        if (moved != -1 || jumpsAvail)
+        if (jumping || jumpsAvail)
             return -1;
 
-        if (targetTile == tile - (oddRow(tile) ? 4 : 6) || targetTile == tile - 5)
+        if (targetTile == tileNumber - (oddRow(tileNumber) ? 4 : 6) || targetTile == tileNumber - 5)
             return 50;
     }
     else if (r2 == r1 - 2)
     {
-        if (moved >= 0 && tile != moved)
-            return -1;
-
         // Jumping over an opponent token
         // Check if valid diagonal jump and tile inbetween has an opponent token on it
-        if (targetTile == tile - 9)
+        if (targetTile == tileNumber - 9)
         {
-            if (oddRow(tile))
+            if (oddRow(tileNumber))
             {
-                if (ownerOfTile(tile - 4) == 1 - playerNumber)
-                    return tile - 4;
+                if (ownerOfTile(board, tileNumber - 4) == 1 - playerNumber)
+                    return tileNumber - 4;
             }
             else
             {
-                if (ownerOfTile(tile - 5) == 1 - playerNumber)
-                    return tile - 5;
+                if (ownerOfTile(board, tileNumber - 5) == 1 - playerNumber)
+                    return tileNumber - 5;
             }
         }
-        else if (targetTile == tile - 11)
+        else if (targetTile == tileNumber - 11)
         {
-            if (oddRow(tile))
+            if (oddRow(tileNumber))
             {
-                if (ownerOfTile(tile - 5) == 1 - playerNumber)
-                    return tile - 5;
+                if (ownerOfTile(board, tileNumber - 5) == 1 - playerNumber)
+                    return tileNumber - 5;
             }
             else
             {
-                if (ownerOfTile(tile - 6) == 1 - playerNumber)
-                    return tile - 6;
+                if (ownerOfTile(board, tileNumber - 6) == 1 - playerNumber)
+                    return tileNumber - 6;
             }
         }
     }
 
     return -1;
+}
+
+/// Returns 1 to 10
+function getRow(tile)
+{
+    return Math.ceil((tile + 1) / 5);
 }
 
 function oddRow(tile)
