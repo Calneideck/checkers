@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 public class TCP : MonoBehaviour
 {
     private enum ServerType { LOGIN, REGISTER, CREATE_GAME, REQUEST_GAMES, JOIN_RESUME_GAME, MOVE, SURRENDER };
-    private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE, MOVE_RESULT };
+    private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE, MOVE_RESULT, GAME_UPDATE };
 
     private TcpClient client = new TcpClient();
     private NetworkStream stream;
@@ -18,6 +18,7 @@ public class TCP : MonoBehaviour
     private event Action<string> createGameCallback;
     private event Action<Game.GameData> joinResumeCallback;
     private event Action<string[]> requestGamesCallback;
+    private event Action<string> gameUpdateCallback;
 
     void Start()
     {
@@ -135,8 +136,19 @@ public class TCP : MonoBehaviour
                     else
                         Toast.ShowMessage(ReadString(bytes, ref offset));
                     break;
+
+                case ClientType.GAME_UPDATE:
+                    gameId = ReadString(bytes, ref offset);
+                    if (!string.IsNullOrEmpty(gameId) && gameUpdateCallback != null)
+                        gameUpdateCallback.Invoke(gameId);
+                    break;
             }
         }
+    }
+
+    public void SubscribeGameUpdate(Action<string> callback)
+    {
+        gameUpdateCallback = callback;
     }
 
     public void LoginRegister(bool login, string username, string password, Action<bool> callback)

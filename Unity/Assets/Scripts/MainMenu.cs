@@ -42,6 +42,11 @@ public class MainMenu : MonoBehaviour
     private int colour = -1;
     private string username;
 
+    void Start()
+    {
+        tcp.SubscribeGameUpdate(GameUpdate);
+    }
+
     public void Register()
     {
         ShowWaiting();
@@ -144,6 +149,19 @@ public class MainMenu : MonoBehaviour
             gameId = joinGameId.text;
             tcp.JoinResumeGame(gameId, GoToGame);
         }
+    }
+
+    void GameUpdate(string gameId)
+    {
+        if (this.gameId == gameId && gameBoard.activeSelf)
+        {
+            ShowWaiting();
+            RemoveGamesList();
+            tcp.JoinResumeGame(gameId, GoToGame);
+            Toast.ShowMessage("Your turn");
+        }
+        else
+            Toast.ShowMessage("Your turn in game: " + gameId);
     }
 
     void GoToGame(Game.GameData gameData)

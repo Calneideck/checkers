@@ -170,11 +170,8 @@ public class Game : MonoBehaviour
         else
             NewGame();
 
-        if (blue != null)
-            playerNames[0].text = blue;
-
-        if (white != null)
-            playerNames[1].text = white;
+        playerNames[0].text = blue != null ? blue : "";
+        playerNames[1].text = white != null ? white : "";
 
         playerNameOutlines[1 - turn].enabled = false;
         playerNameOutlines[turn].enabled = true;
