@@ -31,6 +31,7 @@ public class Game : MonoBehaviour
     public Color[] colours;
     public Text[] playerNames;
     public Outline[] playerNameOutlines;
+    public Text gameIdText;
     public Transform board;
     public LayerMask tokenMask;
     public GameObject highlightPrefab;
@@ -44,7 +45,6 @@ public class Game : MonoBehaviour
     private bool down;
     private List<GameObject> tokens = new List<GameObject>();
     private GameObject selectedToken;
-    private Vector3 startPos;
     private List<GameObject> highlights = new List<GameObject>();
 
     void Start()
@@ -88,7 +88,6 @@ public class Game : MonoBehaviour
                 return;
             }
 
-            startPos = selectedToken.transform.position;
             int[] moves = GameLogic.GetAvailMoves(selectedToken.GetComponent<Token>().Index);
             for (int i = 0; i < moves.Length; i++)
             {
@@ -143,7 +142,7 @@ public class Game : MonoBehaviour
             else
             {
                 // Drop token
-                iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", startPos, "time", 0.5f));
+                iTween.MoveTo(selectedToken.gameObject, iTween.Hash("position", board.GetChild(selectedToken.GetComponent<Token>().Index).position , "time", 0.5f));
             }
 
             // Clear highlights
@@ -156,7 +155,7 @@ public class Game : MonoBehaviour
         down = false;
     }
 
-    public void OpenGame(GameLogic.Tile[] grid, int turn, int colour, string blue, string white, int winner)
+    public void OpenGame(string gameId, GameLogic.Tile[] grid, int turn, int colour, string blue, string white, int winner)
     {
         ClearBoard();
         if (grid != null)
@@ -176,6 +175,8 @@ public class Game : MonoBehaviour
         playerNameOutlines[1 - turn].enabled = false;
         playerNameOutlines[turn].enabled = true;
         playerNumber = colour;
+
+        gameIdText.text = gameId;
         this.turn = turn;
         GameLogic.SetInfo(colour, turn, winner);
     }

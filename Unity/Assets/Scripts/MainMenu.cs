@@ -9,6 +9,8 @@ public class MainMenu : MonoBehaviour
 
     [Header("Screens")]
     public GameObject waitingScreen;
+    public GameObject welcomeScreen;
+    public GameObject connectScreen;
     public GameObject regScreen;
     public GameObject loginScreen;
     public GameObject mainMenuScreen;
@@ -16,6 +18,9 @@ public class MainMenu : MonoBehaviour
     public GameObject continueGameScreen;
     public GameObject gameScreen;
     public GameObject gameBoard;
+
+    [Header("Waiting")]
+    public Text waitingText;
 
     [Header("Login")]
     public InputField loginUserField;
@@ -42,13 +47,38 @@ public class MainMenu : MonoBehaviour
     private int colour = -1;
     private string username;
 
-    void Start()
+    void Awake()
     {
         tcp.SubscribeGameUpdate(GameUpdate);
+        tcp.SubscribeConnect(ConnectionResult);
+    }
+
+    void ConnectionResult(bool connected)
+    {
+        if (connected)
+        {
+            welcomeScreen.SetActive(true);
+            waitingText.text = "Waiting...";
+        }
+        else
+        {
+            Toast.ShowMessage("Could not connect");
+            connectScreen.SetActive(true);
+        }
+
+        waitingScreen.SetActive(false);
+    }
+
+    public void Connect()
+    {
+        waitingText.text = "Connecting...";
+        ShowWaiting();
+        tcp.TryToConnect();
     }
 
     public void Register()
     {
+        print(true);
         ShowWaiting();
         username = regUserField.text;
         tcp.LoginRegister(false, regUserField.text, regPasswordField.text, RegisterResult);
@@ -57,7 +87,10 @@ public class MainMenu : MonoBehaviour
     void RegisterResult(bool result)
     {
         if (result)
+        {
             mainMenuScreen.SetActive(true);
+            Toast.ShowMessage("Registered");
+        }
         else
             regScreen.SetActive(true);
 
@@ -183,7 +216,7 @@ public class MainMenu : MonoBehaviour
                 else
                     Toast.ShowMessage("Better luck next time");
 
-            game.OpenGame(gameData.grid, gameData.turn, colour, gameData.blue, gameData.white, gameData.winner);
+            game.OpenGame(gameId, gameData.grid, gameData.turn, colour, gameData.blue, gameData.white, gameData.winner);
             gameScreen.SetActive(true);
             gameBoard.SetActive(true);
         }

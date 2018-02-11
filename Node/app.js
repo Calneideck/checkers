@@ -3,7 +3,6 @@ const DB = require('./aws.js');
 const RULES = require('./rules.js');
 const DEBUG = true;
 
-//var ServerType = ['LOGIN', 'REGISTER', 'CREATE_GAME', 'REQUEST_GAMES', 'JOIN_RESUME_GAME', 'MOVE', 'SURRENDER'];
 const ServerType = {
   LOGIN: 0,
   REGISTER: 1,
@@ -13,7 +12,6 @@ const ServerType = {
   MOVE: 5,
   SURRENDER: 6
 };
-//var ClientType = ['LOGIN_RESULT', 'GAME_CREATED', 'GAME_LIST', 'GAME_STATE', 'MOVE_RESULT', 'GAME_UPDATE'];
 const ClientType = {
   LOGIN_RESULT: 0,
   GAME_CREATED: 1,
@@ -37,14 +35,14 @@ var server = NET.createServer(function(socket) {
   // Handle incoming messages from clients.
   socket.on('data', function(data) {
     clients[socket.remoteAddress].offset = 0;
-    var id = readInt(data);
+    var id = readInt(socket, data);
 
     if (DEBUG)
       console.log('Msg:', id);
 
     if (id == ServerType.LOGIN) {
-      var username = readString(data);
-      var password = readString(data);
+      var username = readString(socket, data);
+      var password = readString(socket, data);
       clients[socket.remoteAddress].offset = 0;
 
       if (!username || username.length == 0 || !password || password.length == 0)
@@ -65,8 +63,8 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.REGISTER) {
-      var username = readString(data);
-      var password = readString(data);
+      var username = readString(socket, data);
+      var password = readString(socket, data);
       clients[socket.remoteAddress].offset = 0;
 
       if (!username || username.length == 0 || !password || password.length == 0)
@@ -87,7 +85,7 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.CREATE_GAME) {
-      var colour = readInt(data); // 0 = blue, 1 = white
+      var colour = readInt(socket, data); // 0 = blue, 1 = white
       clients[socket.remoteAddress].offset = 0;
 
       if (colour != 0 && colour != 1)
@@ -124,7 +122,7 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.JOIN_RESUME_GAME) {
-      var gameId = readString(data);
+      var gameId = readString(socket, data);
       clients[socket.remoteAddress].offset = 0;
 
       if (gameId) {
@@ -150,11 +148,11 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.MOVE) {
-      var tile = readInt(data);
-      var moveCount = readInt(data);
+      var tile = readInt(socket, data);
+      var moveCount = readInt(socket, data);
       var moves = [];
       for (var i = 0; i < moveCount; i++)
-        moves.push(readInt(data));
+        moves.push(readInt(socket, data));
 
       if (DEBUG)
         console.log('move - tile:', tile, 'moves:', moves)
@@ -209,28 +207,6 @@ var server = NET.createServer(function(socket) {
     }
   });
 
-  function readInt(buffer) {
-    if (clients[socket.remoteAddress].offset + 4 <= buffer.length) {
-      var data = buffer.readInt32LE(clients[socket.remoteAddress].offset);
-      clients[socket.remoteAddress].offset += 4;
-      return data;
-    }
-    else
-      return null;
-  }
-
-  function readString(buffer) {
-    var length = readInt(buffer);
-    if (length)
-      if (clients[socket.remoteAddress].offset + length <= buffer.length) {
-        var data = buffer.toString('ascii', clients[socket.remoteAddress].offset, clients[socket.remoteAddress].offset + length);
-        clients[socket.remoteAddress].offset += length;
-        return data;
-      }
-
-    return null;
-  }
-
   // Remove the client from the list when it leaves
   socket.on('end', function () {
     console.log(socket.remoteAddress, 'left');
@@ -245,29 +221,55 @@ var server = NET.createServer(function(socket) {
   });
 }).listen(5000);
 
+function readInt(socket, buffer) {
+  if (clients[socket.remoteAddress].offset + 4 <= buffer.length) {
+    var data = buffer.readInt32LE(clients[socket.remoteAddress].offset);
+    clients[socket.remoteAddress].offset += 4;
+    return data;
+  }
+  else
+    return null;
+}
+
+function readString(socket, buffer) {
+  var length = readInt(socket, buffer);
+  if (length)
+    if (clients[socket.remoteAddress].offset + length <= buffer.length) {
+      var data = buffer.toString('ascii', clients[socket.remoteAddress].offset, clients[socket.remoteAddress].offset + length);
+      clients[socket.remoteAddress].offset += length;
+      return data;
+    }
+
+  return null;
+}
+
 function writeInt(socket, buffer, data) {
   var offset = clients[socket.remoteAddress].offset;
-  buffer.writeInt32LE(data, offset);
-  clients[socket.remoteAddress].offset += 4;
+  if (offset + 3 < buffer.length) {
+    buffer.writeInt32LE(data, offset);
+    clients[socket.remoteAddress].offset += 4;
+  }
 }
 
 function writeString(socket, buffer, data) {
   writeInt(socket, buffer, data ? data.length : 0);
   var offset = clients[socket.remoteAddress].offset;
-  if (data)
+  if (data && (offset + data.length <= buffer.length)) {
     buffer.write(data, offset, data.length, 'ascii');
-
-  clients[socket.remoteAddress].offset += data ? data.length : 0;
+    clients[socket.remoteAddress].offset += data ? data.length : 0;
+  }
 }
 
 function writeBool(socket, buffer, data) {
   var offset = clients[socket.remoteAddress].offset;
-  if (data == true)
-    buffer[offset] = 1;
-  else if (data == false)
-    buffer[offset] = 0;
-
-  clients[socket.remoteAddress].offset += 1;
+  if (offset < buffer.length) {
+    if (data == true)
+      buffer[offset] = 1;
+    else if (data == false)
+      buffer[offset] = 0;
+  
+    clients[socket.remoteAddress].offset += 1;
+  }
 }
 
 function basicFail(socket, clientType, err) {

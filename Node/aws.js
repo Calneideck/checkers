@@ -145,7 +145,7 @@ module.exports = {
                 if (err)
                     console.log('getGame: ', err);
 
-                callback('Unable to get game data');
+                callback('Game does not exist or unable to get data');
             }
             else {
                 var blue = '';

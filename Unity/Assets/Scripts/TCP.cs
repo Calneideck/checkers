@@ -9,10 +9,12 @@ public class TCP : MonoBehaviour
 {
     private enum ServerType { LOGIN, REGISTER, CREATE_GAME, REQUEST_GAMES, JOIN_RESUME_GAME, MOVE, SURRENDER };
     private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE, MOVE_RESULT, GAME_UPDATE };
+    private enum Connection { NONE, CONNECTED, FAILED };
 
     private TcpClient client = new TcpClient();
     private NetworkStream stream;
 
+    private event Action<bool> connectCallback;
     private event Action<bool> loginCallback;
     private event Action<bool> registerCallback;
     private event Action<string> createGameCallback;
@@ -20,22 +22,49 @@ public class TCP : MonoBehaviour
     private event Action<string[]> requestGamesCallback;
     private event Action<string> gameUpdateCallback;
 
+    private Connection connection;
+
     void Start()
     {
-        try
+        TryToConnect();
+    }
+
+    public void TryToConnect()
+    {
+        client.BeginConnect("10.1.1.6", 5000, new AsyncCallback((result) =>
         {
-            client.Connect("192.168.0.245", 5000);
-            stream = client.GetStream();
-            Debug.Log("Connected");
-        }
-        catch
+            bool connected = false;
+            try
+            {
+                stream = client.GetStream();
+                client.EndConnect(result);
+                connected = true;
+                Debug.Log("Connected");
+            }
+            catch
+            {
+                Debug.LogError("Could not connect to server");
+            }
+
+            connection = connected ? Connection.CONNECTED : Connection.FAILED;
+        }), null);
+    }
+
+    void CheckConnection()
+    {
+        if (connection != Connection.NONE)
         {
-            Debug.LogError("Could not connect to server");
+            if (connectCallback != null)
+                connectCallback.Invoke(connection == Connection.CONNECTED);
+
+            connection = Connection.NONE;
         }
     }
 
     void Update()
     {
+        CheckConnection();
+
         if (stream != null && stream.DataAvailable)
         {
             // Get the data from the network stream
@@ -146,6 +175,11 @@ public class TCP : MonoBehaviour
         }
     }
 
+    public void SubscribeConnect(Action<bool> callback)
+    {
+        connectCallback = callback;
+    }
+
     public void SubscribeGameUpdate(Action<string> callback)
     {
         gameUpdateCallback = callback;
@@ -153,9 +187,10 @@ public class TCP : MonoBehaviour
 
     public void LoginRegister(bool login, string username, string password, Action<bool> callback)
     {
-        if (stream == null || username.Length == 0 || password.Length == 0)
+        if (username.Length == 0 || password.Length == 0)
         {
             callback(false);
+            Toast.ShowMessage("Please enter a username and password");
             return;
         }
 
