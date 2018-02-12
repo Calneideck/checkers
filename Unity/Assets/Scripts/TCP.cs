@@ -11,7 +11,7 @@ public class TCP : MonoBehaviour
     private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE, MOVE_RESULT, GAME_UPDATE };
     private enum Connection { NONE, CONNECTED, FAILED };
 
-    private TcpClient client = new TcpClient();
+    private TcpClient client;
     private NetworkStream stream;
 
     private event Action<bool> connectCallback;
@@ -31,6 +31,7 @@ public class TCP : MonoBehaviour
 
     public void TryToConnect()
     {
+        client = new TcpClient();
         client.BeginConnect("10.1.1.6", 5000, new AsyncCallback((result) =>
         {
             bool connected = false;
@@ -56,6 +57,9 @@ public class TCP : MonoBehaviour
         {
             if (connectCallback != null)
                 connectCallback.Invoke(connection == Connection.CONNECTED);
+
+            if (connection == Connection.FAILED)
+                Toast.ShowMessage("Could not connect");
 
             connection = Connection.NONE;
         }
@@ -203,7 +207,7 @@ public class TCP : MonoBehaviour
         WriteInt(b, login ? (int)ServerType.LOGIN : (int)ServerType.REGISTER);
         WriteString(b, username);
         WriteString(b, GetHashSha256(password));
-        stream.Write(b.ToArray(), 0, b.Count);
+        WriteStream(b.ToArray());
     }
 
     public void CreateGame(int colour, Action<string> callback)
@@ -212,7 +216,7 @@ public class TCP : MonoBehaviour
         List<byte> b = new List<byte>();
         WriteInt(b, (int)ServerType.CREATE_GAME);
         WriteInt(b, colour);
-        stream.Write(b.ToArray(), 0, b.Count);
+        WriteStream(b.ToArray());
     }
 
     public void JoinResumeGame(string gameId, Action<Game.GameData> callback)
@@ -221,7 +225,7 @@ public class TCP : MonoBehaviour
         List<byte> b = new List<byte>();
         WriteInt(b, (int)ServerType.JOIN_RESUME_GAME);
         WriteString(b, gameId);
-        stream.Write(b.ToArray(), 0, b.Count);
+        WriteStream(b.ToArray());
     }
 
     public void RequestGames(Action<string[]> callback)
@@ -229,7 +233,7 @@ public class TCP : MonoBehaviour
         requestGamesCallback = callback;
         List<byte> b = new List<byte>();
         WriteInt(b, (int)ServerType.REQUEST_GAMES);
-        stream.Write(b.ToArray(), 0, b.Count);
+        WriteStream(b.ToArray());
     }
 
     public void Move(int tile, int[] moves)
@@ -241,7 +245,7 @@ public class TCP : MonoBehaviour
         for (int i = 0; i < moves.Length; i++)
             WriteInt(b, moves[i]);
 
-        stream.Write(b.ToArray(), 0, b.Count);
+        WriteStream(b.ToArray());
     }
 
     #region Read
@@ -320,6 +324,23 @@ public class TCP : MonoBehaviour
             bytes.Add(b);
     }
     #endregion
+
+    void WriteStream(byte[] bytes)
+    {
+        try
+        {
+            stream.Write(bytes, 0, bytes.Length);
+        }
+        catch
+        {
+            Toast.ShowMessage("Lost connection");
+            client.Close();
+            client = null;
+            stream = null;
+            if (connectCallback != null)
+                connectCallback.Invoke(false);
+        }
+    }
 
     string GetHashSha256(string text)
     {

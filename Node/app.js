@@ -28,22 +28,21 @@ var sockets = [];
 // Start a TCP Server
 var server = NET.createServer(function(socket) {
   // Put this new client in the list
-  clients[socket.remoteAddress] = { username: '', offset: 0, gameId: null };
+  clients[socket.remoteAddress] = { username: '', gameId: null };
   sockets.push(socket);
   console.log('client connected: ' + socket.remoteAddress);
 
   // Handle incoming messages from clients.
   socket.on('data', function(data) {
-    clients[socket.remoteAddress].offset = 0;
-    var id = readInt(socket, data);
+    var obj = { offset: 0 };
+    var id = readInt(socket, data, obj);
 
     if (DEBUG)
       console.log('Msg:', id);
 
     if (id == ServerType.LOGIN) {
-      var username = readString(socket, data);
-      var password = readString(socket, data);
-      clients[socket.remoteAddress].offset = 0;
+      var username = readString(socket, data, obj);
+      var password = readString(socket, data, obj);
 
       if (!username || username.length == 0 || !password || password.length == 0)
         return basicFail(socket, ClientType.LOGIN_RESULT, 'Unable to login');
@@ -53,8 +52,9 @@ var server = NET.createServer(function(socket) {
           basicFail(socket, ClientType.LOGIN_RESULT, err);
         else {
           var buffer = Buffer.alloc(5);
-          writeInt(socket, buffer, ClientType.LOGIN_RESULT);
-          writeBool(socket, buffer, true);
+          obj.offset = 0;
+          writeInt(socket, buffer, obj, ClientType.LOGIN_RESULT);
+          writeBool(socket, buffer, obj, true);
           socket.write(buffer);
           console.log(username, 'logged in');
           clients[socket.remoteAddress].username = username;
@@ -63,9 +63,8 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.REGISTER) {
-      var username = readString(socket, data);
-      var password = readString(socket, data);
-      clients[socket.remoteAddress].offset = 0;
+      var username = readString(socket, data, obj);
+      var password = readString(socket, data, obj);
 
       if (!username || username.length == 0 || !password || password.length == 0)
         return basicFail(socket, ClientType.LOGIN_RESULT, 'Unable to register');
@@ -75,8 +74,9 @@ var server = NET.createServer(function(socket) {
           basicFail(socket, ClientType.LOGIN_RESULT, err);
         else {
           var buffer = Buffer.alloc(5);
-          writeInt(socket, buffer, ClientType.LOGIN_RESULT);
-          writeBool(socket, buffer, true);
+          obj.offset = 0;
+          writeInt(socket, buffer, obj, ClientType.LOGIN_RESULT);
+          writeBool(socket, buffer, obj, true);
           socket.write(buffer);
           console.log(username, 'registered');
           clients[socket.remoteAddress].username = username;
@@ -85,8 +85,7 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.CREATE_GAME) {
-      var colour = readInt(socket, data); // 0 = blue, 1 = white
-      clients[socket.remoteAddress].offset = 0;
+      var colour = readInt(socket, data, obj); // 0 = blue, 1 = white
 
       if (colour != 0 && colour != 1)
         return basicFail(socket, ClientType.GAME_CREATED, 'Unable to register');
@@ -96,9 +95,10 @@ var server = NET.createServer(function(socket) {
           basicFail(socket, ClientType.GAME_CREATED, err);
         else {
           var buffer = Buffer.alloc(14);
-          writeInt(socket, buffer, ClientType.GAME_CREATED);
-          writeBool(socket, buffer, true);
-          writeString(socket, buffer, gameId);
+          obj.offset = 0;
+          writeInt(socket, buffer, obj, ClientType.GAME_CREATED);
+          writeBool(socket, buffer, obj, true);
+          writeString(socket, buffer, obj, gameId);
           socket.write(buffer);
           console.log('game created:', gameId)
           clients[socket.remoteAddress].gameId = gameId;
@@ -107,37 +107,38 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.REQUEST_GAMES) {
-      clients[socket.remoteAddress].offset = 0;
       DB.getUserGames(clients[socket.remoteAddress].username, function(err, gamesList) {
         if (err)
           basicFail(socket, ClientType.GAME_LIST, err);
         else {
           var buffer = Buffer.alloc(9 + (gamesList ? gamesList.length : 0));
-          writeInt(socket, buffer, ClientType.GAME_LIST);
-          writeBool(socket, buffer, true);
-          writeString(socket, buffer, gamesList);
+          obj.offset = 0;
+          writeInt(socket, buffer, obj, ClientType.GAME_LIST);
+          writeBool(socket, buffer, obj, true);
+          writeString(socket, buffer, obj, gamesList);
           socket.write(buffer);
         }
       });
     }
 
     else if (id == ServerType.JOIN_RESUME_GAME) {
-      var gameId = readString(socket, data);
-      clients[socket.remoteAddress].offset = 0;
+      var gameId = readString(socket, data, obj);
 
       if (gameId) {
+        gameId = gameId.toUpperCase();
         DB.getGame(gameId, clients[socket.remoteAddress].username, function(err, board, turn, blue, white, winner) {
           if (err || board.length != 99)
             basicFail(socket, ClientType.GAME_STATE, err ? err : 'Unable to get game data');
           else {
             var buffer = Buffer.alloc(124 + blue.length + white.length);
-            writeInt(socket, buffer, ClientType.GAME_STATE);
-            writeBool(socket, buffer, true);
-            writeString(socket, buffer, board);
-            writeInt(socket, buffer, turn);
-            writeString(socket, buffer, blue);
-            writeString(socket, buffer, white);
-            writeInt(socket, buffer, winner);
+            obj.offset = 0;
+            writeInt(socket, buffer, obj, ClientType.GAME_STATE);
+            writeBool(socket, buffer, obj, true);
+            writeString(socket, buffer, obj, board);
+            writeInt(socket, buffer, obj, turn);
+            writeString(socket, buffer, obj, blue);
+            writeString(socket, buffer, obj, white);
+            writeInt(socket, buffer, obj, winner);
             socket.write(buffer);
             clients[socket.remoteAddress].gameId = gameId;
           }
@@ -148,20 +149,19 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.MOVE) {
-      var tile = readInt(socket, data);
-      var moveCount = readInt(socket, data);
+      var tile = readInt(socket, data, obj);
+      var moveCount = readInt(socket, data, obj);
       var moves = [];
       for (var i = 0; i < moveCount; i++)
-        moves.push(readInt(socket, data));
+        moves.push(readInt(socket, data, obj));
 
       if (DEBUG)
         console.log('move - tile:', tile, 'moves:', moves)
       
-      clients[socket.remoteAddress].offset = 0;
-
       if (clients[socket.remoteAddress].gameId == null)
         return basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Not in a game');
 
+      // get game information
       DB.getGame(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err, board, turn, blue, white, winner) {
         if (err || board.length != 99)
           basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Unable to get game data');
@@ -169,6 +169,7 @@ var server = NET.createServer(function(socket) {
           if (winner != -1)
             return basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Game is over');
 
+          // Set player number from username
           var playerNumber = -1;
           if (blue == clients[socket.remoteAddress].username)
             playerNumber = 0;
@@ -177,19 +178,23 @@ var server = NET.createServer(function(socket) {
           else
             basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'User not in game');
 
+          // Make the move
           var result = RULES.move(board, playerNumber, turn, tile, moves);
           if (result.success) {
             turn = 1 - turn;
+            // Update the game
             DB.updateGame(clients[socket.remoteAddress].gameId, result.board, turn, result.winner, function(err) {
               if (err)
                 basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Unable to get game data');
               else {
                 var buffer = Buffer.alloc(9);
-                writeInt(socket, buffer, ClientType.MOVE_RESULT);
-                writeBool(socket, buffer, true);
-                writeInt(socket, buffer, result.winner);
+                obj.offset = 0;
+                writeInt(socket, buffer, obj, ClientType.MOVE_RESULT);
+                writeBool(socket, buffer, obj, true);
+                writeInt(socket, buffer, obj, result.winner);
                 socket.write(buffer);
 
+                // Let opponent know it's their turn
                 var otherUser = turn == 0 ? blue : white;
                 if (otherUser)
                   announceMove(otherUser, clients[socket.remoteAddress].gameId);
@@ -221,72 +226,70 @@ var server = NET.createServer(function(socket) {
   });
 }).listen(5000);
 
-function readInt(socket, buffer) {
-  if (clients[socket.remoteAddress].offset + 4 <= buffer.length) {
-    var data = buffer.readInt32LE(clients[socket.remoteAddress].offset);
-    clients[socket.remoteAddress].offset += 4;
+function readInt(socket, buffer, obj) {
+  if (obj.offset + 4 <= buffer.length) {
+    var data = buffer.readInt32LE(obj.offset);
+    obj.offset += 4;
     return data;
   }
   else
     return null;
 }
 
-function readString(socket, buffer) {
-  var length = readInt(socket, buffer);
+function readString(socket, buffer, obj) {
+  var length = readInt(socket, buffer, obj);
   if (length)
-    if (clients[socket.remoteAddress].offset + length <= buffer.length) {
-      var data = buffer.toString('ascii', clients[socket.remoteAddress].offset, clients[socket.remoteAddress].offset + length);
-      clients[socket.remoteAddress].offset += length;
+    if (obj.offset + length <= buffer.length) {
+      var data = buffer.toString('ascii', obj.offset, obj.offset + length);
+      obj.offset += length;
       return data;
     }
 
   return null;
 }
 
-function writeInt(socket, buffer, data) {
-  var offset = clients[socket.remoteAddress].offset;
-  if (offset + 3 < buffer.length) {
-    buffer.writeInt32LE(data, offset);
-    clients[socket.remoteAddress].offset += 4;
+function writeInt(socket, buffer, obj, data) {
+  if (obj.offset + 3 < buffer.length) {
+    buffer.writeInt32LE(data, obj.offset);
+    obj.offset += 4;
   }
 }
 
-function writeString(socket, buffer, data) {
-  writeInt(socket, buffer, data ? data.length : 0);
-  var offset = clients[socket.remoteAddress].offset;
-  if (data && (offset + data.length <= buffer.length)) {
-    buffer.write(data, offset, data.length, 'ascii');
-    clients[socket.remoteAddress].offset += data ? data.length : 0;
+function writeString(socket, buffer, obj, data) {
+  writeInt(socket, buffer, obj, data ? data.length : 0);
+  if (data && (obj.offset + data.length <= buffer.length)) {
+    buffer.write(data, obj.offset, data.length, 'ascii');
+    obj.offset += data ? data.length : 0;
   }
 }
 
-function writeBool(socket, buffer, data) {
-  var offset = clients[socket.remoteAddress].offset;
-  if (offset < buffer.length) {
+function writeBool(socket, buffer, obj, data) {
+  if (obj.offset < buffer.length) {
     if (data == true)
-      buffer[offset] = 1;
+      buffer[obj.offset] = 1;
     else if (data == false)
-      buffer[offset] = 0;
+      buffer[obj.offset] = 0;
   
-    clients[socket.remoteAddress].offset += 1;
+    obj.offset += 1;
   }
 }
 
 function basicFail(socket, clientType, err) {
   var buffer = Buffer.alloc(9 + err.length);
-  writeInt(socket, buffer, clientType)
-  writeBool(socket, buffer, false);
-  writeString(socket, buffer, err);
+  var obj = { offset: 0 };
+  writeInt(socket, buffer, obj, clientType)
+  writeBool(socket, buffer, obj, false);
+  writeString(socket, buffer, obj, err);
   socket.write(buffer);
 }
 
 function announceMove(username, gameId) {
   for (var i = 0; i < sockets.length; i++)
     if (clients[sockets[i].remoteAddress].username == username) {
-      clients[sockets[i].remoteAddress].offset = 0;
       var buffer = Buffer.alloc(13);
-      writeInt(sockets[i], buffer, ClientType.GAME_UPDATE);
-      writeString(sockets[i], buffer, gameId);
+      var obj = { offset: 0 };
+      writeInt(sockets[i], buffer, obj, ClientType.GAME_UPDATE);
+      writeString(sockets[i], buffer, obj, gameId);
       sockets[i].write(buffer);
       console.log('announced update to', clients[sockets[i].remoteAddress].username, 'for', gameId);
       break;

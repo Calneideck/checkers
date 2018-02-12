@@ -55,18 +55,28 @@ public class MainMenu : MonoBehaviour
 
     void ConnectionResult(bool connected)
     {
+        gameBoard.SetActive(false);
+        gameScreen.SetActive(false);
+        for (int i = 0; i < canvas.childCount - 1; i++)
+            canvas.GetChild(i).gameObject.SetActive(false);
+
         if (connected)
         {
+            LoadLoginInfo();
             welcomeScreen.SetActive(true);
             waitingText.text = "Waiting...";
         }
         else
-        {
-            Toast.ShowMessage("Could not connect");
             connectScreen.SetActive(true);
-        }
+    }
 
-        waitingScreen.SetActive(false);
+    void LoadLoginInfo()
+    {
+        if (PlayerPrefs.HasKey("username"))
+            loginUserField.text = PlayerPrefs.GetString("username");
+
+        if (PlayerPrefs.HasKey("password"))
+            loginPasswordField.text = PlayerPrefs.GetString("password");
     }
 
     public void Connect()
@@ -89,6 +99,9 @@ public class MainMenu : MonoBehaviour
         if (result)
         {
             mainMenuScreen.SetActive(true);
+            PlayerPrefs.SetString("username", regUserField.text);
+            PlayerPrefs.SetString("password", regPasswordField.text);
+            PlayerPrefs.Save();
             Toast.ShowMessage("Registered");
         }
         else
@@ -107,7 +120,12 @@ public class MainMenu : MonoBehaviour
     void LoginResult(bool result)
     {
         if (result)
+        {
+            PlayerPrefs.SetString("username", loginUserField.text);
+            PlayerPrefs.SetString("password", loginPasswordField.text);
+            PlayerPrefs.Save();
             mainMenuScreen.SetActive(true);
+        }
         else
             loginScreen.SetActive(true);
 
