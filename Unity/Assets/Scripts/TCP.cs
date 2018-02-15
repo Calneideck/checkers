@@ -32,7 +32,7 @@ public class TCP : MonoBehaviour
     public void TryToConnect()
     {
         client = new TcpClient();
-        client.BeginConnect("10.1.1.6", 5000, new AsyncCallback((result) =>
+        client.BeginConnect("127.0.0.1", 5000, new AsyncCallback((result) =>
         {
             bool connected = false;
             try

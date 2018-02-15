@@ -10,7 +10,8 @@ const ServerType = {
   REQUEST_GAMES: 3,
   JOIN_RESUME_GAME: 4,
   MOVE: 5,
-  SURRENDER: 6
+  SURRENDER: 6,
+  LEAVE_GAME: 7
 };
 const ClientType = {
   LOGIN_RESULT: 0,
@@ -18,7 +19,9 @@ const ClientType = {
   GAME_LIST: 2,
   GAME_STATE: 3,
   MOVE_RESULT: 4,
-  GAME_UPDATE: 5
+  GAME_UPDATE: 5,
+  SURRENDER_RESULT: 6,
+  LEAVE_GAME_RESULT: 7
 };
 
 // Keep track of the chat clients
@@ -28,7 +31,7 @@ var sockets = [];
 // Start a TCP Server
 var server = NET.createServer(function(socket) {
   // Put this new client in the list
-  clients[socket.remoteAddress] = { username: '', gameId: null };
+  clients[socket.remoteAddress] = { username: null, gameId: null };
   sockets.push(socket);
   console.log('client connected: ' + socket.remoteAddress);
 
@@ -38,7 +41,7 @@ var server = NET.createServer(function(socket) {
     var id = readInt(socket, data, obj);
 
     if (DEBUG)
-      console.log('Msg:', id);
+      console.log('Msg:', idStringFromNumber(id));
 
     if (id == ServerType.LOGIN) {
       var username = readString(socket, data, obj);
@@ -88,7 +91,10 @@ var server = NET.createServer(function(socket) {
       var colour = readInt(socket, data, obj); // 0 = blue, 1 = white
 
       if (colour != 0 && colour != 1)
-        return basicFail(socket, ClientType.GAME_CREATED, 'Unable to register');
+        return basicFail(socket, ClientType.GAME_CREATED, 'Colour not specified');
+
+      if (clients[socket.remoteAddress].username == null)
+        return basicFail(socket, ClientType.GAME_CREATED, 'You must be logged in to do that');
         
       DB.createGame(clients[socket.remoteAddress].username, colour, function(err, gameId) {
         if (err)
@@ -107,6 +113,9 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.REQUEST_GAMES) {
+      if (clients[socket.remoteAddress].username == null)
+        return basicFail(socket, ClientType.GAME_LIST, 'You must be logged in to do that');
+
       DB.getUserGames(clients[socket.remoteAddress].username, function(err, gamesList) {
         if (err)
           basicFail(socket, ClientType.GAME_LIST, err);
@@ -123,6 +132,9 @@ var server = NET.createServer(function(socket) {
 
     else if (id == ServerType.JOIN_RESUME_GAME) {
       var gameId = readString(socket, data, obj);
+
+      if (clients[socket.remoteAddress].username == null)
+        return basicFail(socket, ClientType.GAME_STATE, 'You must be logged in to do that');
 
       if (gameId) {
         gameId = gameId.toUpperCase();
@@ -155,8 +167,8 @@ var server = NET.createServer(function(socket) {
       for (var i = 0; i < moveCount; i++)
         moves.push(readInt(socket, data, obj));
 
-      if (DEBUG)
-        console.log('move - tile:', tile, 'moves:', moves)
+      if (clients[socket.remoteAddress].username == null)
+        return basicFail(socket, ClientType.MOVE_RESULT, 'You must be logged in to do that');
       
       if (clients[socket.remoteAddress].gameId == null)
         return basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Not in a game');
@@ -176,7 +188,7 @@ var server = NET.createServer(function(socket) {
           else if (white == clients[socket.remoteAddress].username)
             playerNumber = 1;
           else
-            basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'User not in game');
+            basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Not in game');
 
           // Make the move
           var result = RULES.move(board, playerNumber, turn, tile, moves);
@@ -208,7 +220,43 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.SURRENDER) {
+      if (clients[socket.remoteAddress].username == null)
+        return basicFail(socket, ClientType.SURRENDER_RESULT, 'You must be logged in to do that');
+      
+      if (clients[socket.remoteAddress].gameId == null)
+        return basicFail(socket, ClientType.SURRENDER_RESULT, err ? err : 'Not in a game');
 
+      DB.surrender(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err) {
+        if (err)
+          basicFail(socket, ClientType.SURRENDER_RESULT, err);
+        else {
+          var buffer = Buffer.alloc(5);
+          obj.offset = 0;
+          writeInt(socket, buffer, obj, ClientType.SURRENDER_RESULT);
+          writeBool(socket, buffer, obj, true);
+          socket.write(buffer);
+        }
+      });
+    }
+
+    else if (id == ServerType.LEAVE_GAME) {
+      if (clients[socket.remoteAddress].username == null)
+        return basicFail(socket, ClientType.LEAVE_GAME_RESULT, 'You must be logged in to do that');
+      
+      if (clients[socket.remoteAddress].gameId == null)
+        return basicFail(socket, ClientType.LEAVE_GAME_RESULT, err ? err : 'Not in a game');
+
+      DB.leaveGame(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err) {
+        if (err)
+          basicFail(sockket, ClientType.LEAVE_GAME_RESULT, err);
+        else {
+          var buffer = Buffer.alloc(5);
+          obj.offset = 0;
+          writeInt(socket, buffer, obj, ClientType.LEAVE_GAME_RESULT);
+          writeBool(socket, buffer, obj, true);
+          socket.write(buffer);
+        }
+      });
     }
   });
 
@@ -294,6 +342,14 @@ function announceMove(username, gameId) {
       console.log('announced update to', clients[sockets[i].remoteAddress].username, 'for', gameId);
       break;
     }
+}
+
+function idStringFromNumber(number) {
+  for (var key in ServerType)
+    if (ServerType[key] == number)
+      return key.toString();
+
+  return '';
 }
 
 console.log('Checkers server running at port 5000');

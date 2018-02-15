@@ -146,8 +146,7 @@ module.exports = {
                     console.log('getGame: ', err);
 
                 callback('Game does not exist or unable to get data');
-            }
-            else {
+            } else {
                 var blue = '';
                 if (data.Item.blue)
                     blue = data.Item.blue.S;
@@ -194,6 +193,121 @@ module.exports = {
             }
             else
                 callback(null);
+        });
+    },
+
+    surrender: function(gameId, username, callback) {
+        gameId = gameId.toUpperCase();
+        username = username.toLowerCase();
+
+        var params = {
+            Key: {
+                'game_id': { S: gameId }
+            },
+            ProjectionExpression: 'blue, white, winner',
+            TableName: 'checkers_games'
+        };
+        DB.getItem(params, function (err, data) {
+            if (err || Object.getOwnPropertyNames(data).length == 0) {
+                if (err)
+                    console.log('surrender: ', err);
+
+                callback('Game does not exist or unable to get data');
+            } else {
+                if (Number(data.Item.winner.S) != -1)
+                    return callback('Game is already over');
+
+                var blue = null;
+                if (data.Item.blue)
+                    blue = data.Item.blue.S
+
+                var white = null;
+                if (data.Item.white)
+                    white = data.Item.white.S;
+
+                if (blue == username || white == username) {
+                    var params = {
+                        Key: {
+                            'game_id': { S: gameId }
+                        },
+                        TableName: 'checkers_games',
+                        UpdateExpression: 'set winner = :winner',
+                        ExpressionAttributeValues: { 
+                            ':winner': { S: blue == username ? 1 : 0 }
+                        }
+                    };
+                    DB.updateItem(params, function(err, data) {
+                        if (err) {
+                            console.log('surrender:', err);
+                            callback('Unable to surrender');
+                        }
+                        else
+                            callback(null);
+                    });
+                }
+                else
+                    callback('user not in game');
+            }
+        });
+    },
+
+    leaveGame: function(gameId, username, callback) {
+        gameId = gameId.toUpperCase();
+        username = username.toLowerCase();
+
+        var params = {
+            Key: {
+                'username': { S: username },
+            },
+            ProjectionExpression: 'games',
+            TableName: 'checkers_users'
+        };
+        DB.getItem(params, function(err, data) {
+            if (err || Object.getOwnPropertyNames(data).length == 0) {
+                if (err)
+                    console.log('leaveGame: ', err);
+
+                callback('Could not update game data');
+            } else if (data.Item.games) {
+                var games = data.Item.games.S.split(',');
+                var found = false;
+                for (var i in games)
+                    if (games[i] == gameId) {
+                        found = true;
+                        if (games.length > 1) {
+                            games.splice(i, 1);
+                            games = games.join(',');
+                        }
+                        else 
+                            games = '';
+                        
+                        // Update users table in DB
+                        params = {
+                            Key: {
+                                'username': { S: username }
+                            },
+                            TableName: 'checkers_users',
+                            UpdateExpression: 'set games = :games',
+                            ExpressionAttributeValues: { 
+                                ':games': { S: games}
+                            }
+                        };
+                        DB.updateItem(params, function(err, data) {
+                            if (err) {
+                                console.log('leaveGame:', err);
+                                callback('Could not update game data');
+                            }
+                            else
+                                callback(null);
+                        });
+                        break;
+                    }
+
+                if (!found)
+                    callback('Not in that game');
+            }
+            else
+                callback('Not in that game');
         });
     }
 }
