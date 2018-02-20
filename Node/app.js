@@ -54,11 +54,7 @@ var server = NET.createServer(function(socket) {
         if (err)
           basicFail(socket, ClientType.LOGIN_RESULT, err);
         else {
-          var buffer = Buffer.alloc(5);
-          obj.offset = 0;
-          writeInt(socket, buffer, obj, ClientType.LOGIN_RESULT);
-          writeBool(socket, buffer, obj, true);
-          socket.write(buffer);
+          basicSuccess(socket, ClientType.LOGIN_RESULT);
           console.log(username, 'logged in');
           clients[socket.remoteAddress].username = username;
         }
@@ -76,11 +72,7 @@ var server = NET.createServer(function(socket) {
         if (err)
           basicFail(socket, ClientType.LOGIN_RESULT, err);
         else {
-          var buffer = Buffer.alloc(5);
-          obj.offset = 0;
-          writeInt(socket, buffer, obj, ClientType.LOGIN_RESULT);
-          writeBool(socket, buffer, obj, true);
-          socket.write(buffer);
+          basicSuccess(socket, ClientType.LOGIN_RESULT);
           console.log(username, 'registered');
           clients[socket.remoteAddress].username = username;
         }
@@ -229,13 +221,8 @@ var server = NET.createServer(function(socket) {
       DB.surrender(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err) {
         if (err)
           basicFail(socket, ClientType.SURRENDER_RESULT, err);
-        else {
-          var buffer = Buffer.alloc(5);
-          obj.offset = 0;
-          writeInt(socket, buffer, obj, ClientType.SURRENDER_RESULT);
-          writeBool(socket, buffer, obj, true);
-          socket.write(buffer);
-        }
+        else
+          basicSuccess(socket, ClientType.SURRENDER_RESULT);
       });
     }
 
@@ -248,14 +235,9 @@ var server = NET.createServer(function(socket) {
 
       DB.leaveGame(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err) {
         if (err)
-          basicFail(sockket, ClientType.LEAVE_GAME_RESULT, err);
-        else {
-          var buffer = Buffer.alloc(5);
-          obj.offset = 0;
-          writeInt(socket, buffer, obj, ClientType.LEAVE_GAME_RESULT);
-          writeBool(socket, buffer, obj, true);
-          socket.write(buffer);
-        }
+          basicFail(socket, ClientType.LEAVE_GAME_RESULT, err);
+        else
+          basicSuccess(socket, ClientType.LEAVE_GAME_RESULT);
       });
     }
   });
@@ -325,9 +307,17 @@ function writeBool(socket, buffer, obj, data) {
 function basicFail(socket, clientType, err) {
   var buffer = Buffer.alloc(9 + err.length);
   var obj = { offset: 0 };
-  writeInt(socket, buffer, obj, clientType)
+  writeInt(socket, buffer, obj, clientType);
   writeBool(socket, buffer, obj, false);
   writeString(socket, buffer, obj, err);
+  socket.write(buffer);
+}
+
+function basicSuccess(socket, clientType) {
+  var buffer = Buffer.alloc(5);
+  var obj = { offset: 0 };
+  writeInt(socket, buffer, obj, clientType);
+  writeBool(socket, buffer, obj, true);
   socket.write(buffer);
 }
 

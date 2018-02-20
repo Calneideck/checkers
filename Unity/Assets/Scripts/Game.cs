@@ -36,6 +36,8 @@ public class Game : MonoBehaviour
     public LayerMask tokenMask;
     public GameObject highlightPrefab;
     public Sprite kingSprite;
+    public GameObject surrenderButton;
+    public GameObject leaveButton;
 
     private int turn = -1;
     private int playerNumber = -1;
@@ -175,6 +177,8 @@ public class Game : MonoBehaviour
         playerNameOutlines[1 - turn].enabled = false;
         playerNameOutlines[turn].enabled = true;
         playerNumber = colour;
+        surrenderButton.SetActive(winner == -1);
+        leaveButton.SetActive(winner != -1);
 
         gameIdText.text = gameId;
         this.turn = turn;
@@ -223,6 +227,16 @@ public class Game : MonoBehaviour
 
         token.GetComponent<Token>().Index = index;
         tokens.Add(token);
+    }
+
+    public void Surrender()
+    {
+        tcp.Surrender();
+    }
+
+    public void Leave()
+    {
+        tcp.LeaveGame();
     }
 
     private Transform GetClosestTile(Vector2 pos)

@@ -7,8 +7,8 @@ using System.Security.Cryptography;
 
 public class TCP : MonoBehaviour
 {
-    private enum ServerType { LOGIN, REGISTER, CREATE_GAME, REQUEST_GAMES, JOIN_RESUME_GAME, MOVE, SURRENDER };
-    private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE, MOVE_RESULT, GAME_UPDATE };
+    private enum ServerType { LOGIN, REGISTER, CREATE_GAME, REQUEST_GAMES, JOIN_RESUME_GAME, MOVE, SURRENDER, LEAVE_GAME };
+    private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE, MOVE_RESULT, GAME_UPDATE, SURRENDER_RESULT, LEAVE_GAME_RESULT };
     private enum Connection { NONE, CONNECTED, FAILED };
 
     private TcpClient client;
@@ -175,6 +175,22 @@ public class TCP : MonoBehaviour
                     if (!string.IsNullOrEmpty(gameId) && gameUpdateCallback != null)
                         gameUpdateCallback.Invoke(gameId);
                     break;
+
+                case ClientType.SURRENDER_RESULT:
+                    result = ReadBool(bytes, ref offset);
+                    if (result)
+                        Toast.ShowMessage("Better luck next time");
+                    else
+                        Toast.ShowMessage(ReadString(bytes, ref offset));
+                    break;
+
+                case ClientType.LEAVE_GAME_RESULT:
+                    result = ReadBool(bytes, ref offset);
+                    if (result)
+                        Toast.ShowMessage("Left game successfully");
+                    else
+                        Toast.ShowMessage(ReadString(bytes, ref offset));
+                    break;
             }
         }
     }
@@ -245,6 +261,20 @@ public class TCP : MonoBehaviour
         for (int i = 0; i < moves.Length; i++)
             WriteInt(b, moves[i]);
 
+        WriteStream(b.ToArray());
+    }
+
+    public void Surrender()
+    {
+        List<byte> b = new List<byte>();
+        WriteInt(b, (int)ServerType.SURRENDER);
+        WriteStream(b.ToArray());
+    }
+
+    public void LeaveGame()
+    {
+        List<byte> b = new List<byte>();
+        WriteInt(b, (int)ServerType.LEAVE_GAME);
         WriteStream(b.ToArray());
     }
 

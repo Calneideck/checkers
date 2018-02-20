@@ -35,6 +35,7 @@ public class MainMenu : MonoBehaviour
 
     [Header("Game Created")]
     public Text gameIdText;
+    public GameObject shareButton;
 
     [Header("Continue Game")]
     public Transform scrollRect;
@@ -152,9 +153,16 @@ public class MainMenu : MonoBehaviour
             gameCreatedScreen.SetActive(true);
             gameIdText.text = gameId;
             this.gameId = gameId;
+
+            shareButton.SetActive(Application.platform == RuntimePlatform.Android);
         }
 
         waitingScreen.SetActive(false);
+    }
+
+    public void Share()
+    {
+        ShareApp.ShareText(gameId);
     }
 
     public void StartGame()
@@ -189,6 +197,7 @@ public class MainMenu : MonoBehaviour
         ShowWaiting();
         this.gameId = gameId;
         RemoveGamesList();
+        colour = -1;
         tcp.JoinResumeGame(gameId, GoToGame);
     }
 
@@ -197,14 +206,14 @@ public class MainMenu : MonoBehaviour
         if (!string.IsNullOrEmpty(joinGameId.text) && joinGameId.text.Length == 5)
         {
             ShowWaiting();
-            gameId = joinGameId.text;
+            gameId = joinGameId.text.ToUpper();
             tcp.JoinResumeGame(gameId, GoToGame);
         }
     }
 
     void GameUpdate(string gameId)
     {
-        if (this.gameId == gameId && gameBoard.activeSelf)
+        if (this.gameId.ToUpper() == gameId.ToUpper() && gameBoard.activeSelf)
         {
             ShowWaiting();
             RemoveGamesList();
@@ -222,11 +231,10 @@ public class MainMenu : MonoBehaviour
             for (int i = 0; i < canvas.childCount - 1; i++)
                 canvas.GetChild(i).gameObject.SetActive(false);
 
-            if (colour == -1)
-                if (gameData.blue == username)
-                    colour = 0;
-                else if (gameData.white == username)
-                    colour = 1;
+            if (gameData.blue == username)
+                colour = 0;
+            else if (gameData.white == username)
+                colour = 1;
 
             if (gameData.winner != -1)
                 if (gameData.winner == colour)

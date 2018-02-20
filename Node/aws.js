@@ -233,7 +233,7 @@ module.exports = {
                         TableName: 'checkers_games',
                         UpdateExpression: 'set winner = :winner',
                         ExpressionAttributeValues: { 
-                            ':winner': { S: blue == username ? 1 : 0 }
+                            ':winner': { S: (blue == username ? 1 : 0).toString() }
                         }
                     };
                     DB.updateItem(params, function(err, data) {
@@ -274,24 +274,32 @@ module.exports = {
                 for (var i in games)
                     if (games[i] == gameId) {
                         found = true;
+                        var params = {};
                         if (games.length > 1) {
                             games.splice(i, 1);
                             games = games.join(',');
+
+                            // Update users table in DB
+                            params = {
+                                Key: {
+                                    'username': { S: username }
+                                },
+                                TableName: 'checkers_users',
+                                UpdateExpression: 'set games = :games',
+                                ExpressionAttributeValues: { 
+                                    ':games': { S: games }
+                                }
+                            };
+                        } else {
+                            params = {
+                                Key: {
+                                    'username': { S: username }
+                                },
+                                TableName: 'checkers_users',
+                                UpdateExpression: 'remove games',
+                            };
                         }
-                        else 
-                            games = '';
-                        
-                        // Update users table in DB
-                        params = {
-                            Key: {
-                                'username': { S: username }
-                            },
-                            TableName: 'checkers_users',
-                            UpdateExpression: 'set games = :games',
-                            ExpressionAttributeValues: { 
-                                ':games': { S: games}
-                            }
-                        };
+
                         DB.updateItem(params, function(err, data) {
                             if (err) {
                                 console.log('leaveGame:', err);
