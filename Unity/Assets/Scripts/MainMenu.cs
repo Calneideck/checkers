@@ -6,6 +6,7 @@ public class MainMenu : MonoBehaviour
     public TCP tcp;
     public Transform canvas;
     public Game game;
+    public Camera mainCamera;
 
     [Header("Screens")]
     public GameObject waitingScreen;
@@ -52,6 +53,10 @@ public class MainMenu : MonoBehaviour
     {
         tcp.SubscribeGameUpdate(GameUpdate);
         tcp.SubscribeConnect(ConnectionResult);
+
+        float targetRatio = 16 / 9f;
+        float ratio = Screen.height > Screen.width ? Screen.height / (float)Screen.width : Screen.width / (float)Screen.height;
+        mainCamera.orthographicSize *= (ratio / targetRatio);
     }
 
     void ConnectionResult(bool connected)

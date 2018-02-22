@@ -274,39 +274,33 @@ module.exports = {
                 for (var i in games)
                     if (games[i] == gameId) {
                         found = true;
-                        var params = {};
+                        params = {
+                            Key: {
+                                'username': { S: username }
+                            },
+                            TableName: 'checkers_users'
+                        };
+                        
                         if (games.length > 1) {
                             games.splice(i, 1);
                             games = games.join(',');
 
                             // Update users table in DB
-                            params = {
-                                Key: {
-                                    'username': { S: username }
-                                },
-                                TableName: 'checkers_users',
-                                UpdateExpression: 'set games = :games',
-                                ExpressionAttributeValues: { 
-                                    ':games': { S: games }
-                                }
+                            params.UpdateExpression = 'set games = :games';
+                            params.ExpressionAttributeValues = { 
+                                ':games': { S: games }
                             };
-                        } else {
-                            params = {
-                                Key: {
-                                    'username': { S: username }
-                                },
-                                TableName: 'checkers_users',
-                                UpdateExpression: 'remove games',
-                            };
-                        }
+                        } else
+                            params.UpdateExpression = 'remove games';
 
                         DB.updateItem(params, function(err, data) {
                             if (err) {
                                 console.log('leaveGame:', err);
                                 callback('Could not update game data');
-                            }
-                            else
+                            } else {
                                 callback(null);
+                                checkToRemoveGame(gameId, username);
+                            }
                         });
                         break;
                     }
@@ -335,7 +329,7 @@ function checkUser(username, callback) {
             callback(err, null);
         }
         else
-            callback(err, data.Item.username.S);
+            callback(null, data.Item.username.S);
     });
 }
 
@@ -354,7 +348,7 @@ function checkGame(gameId, callback) {
             callback(err, null);
         }
         else
-            callback(err, data.Item.game_id.S);
+            callback(null, data.Item.game_id.S);
     });
 }
 
@@ -469,6 +463,75 @@ function addUserToExistingGame(callback, gameId, board, turn, blue, white, winne
                 }
             });
         }
+    });
+}
+
+function checkToRemoveGame(gameId, username) {
+    var params = {
+        Key: {
+            'game_id': { S: gameId }
+        },
+        TableName: 'checkers_games',
+        ProjectionExpression: 'blue, white'
+    };
+    DB.getItem(params, function (err, data) {
+        if (err || Object.getOwnPropertyNames(data).length == 0) {
+            if (err)
+                console.log('checkToRemoveGame', err);
+        } else {
+            // Remove if no opponent
+            if (data.Item.blue == null || data.Item.white == null)
+                removeGame(gameId);
+            else if (data.Item.blue.S == username || data.Item.white.S == username) {
+                params = {
+                    Key: {
+                        'username': { S: '' }
+                    },
+                    TableName: 'checkers_users',
+                    ProjectionExpression: 'games'
+                };
+                // Get details of opponent
+                params.Key.username.S =data.Item.blue.Sblue == username ? data.Item.white.S : data.Item.blue.S;
+                DB.getItem(params, function(err, data) {
+                    if (err || Object.getOwnPropertyNames(data).length == 0) {
+                        if (err)
+                            console.log('checkToRemoveGame', err);
+                    } else {
+                        if (data.Item.games) {
+                            var games = data.Item.games.S.split(',');
+                            var found = false;
+                            for (var i in games)
+                                if (games[i] == gameId) {
+                                    found = true;
+                                    break;
+                                }
+
+                            // Remove if opponent is not in game
+                            if (!found)
+                                removeGame(gameId);
+                        }
+                        else
+                            // Remove if opponent is in no games
+                            removeGame(gameId);
+                    }
+                });
+            }
+        }
+    });
+}
+
+function removeGame(gameId) {
+    var params = {
+        Key: {
+            'game_id': { S: gameId }
+        },
+        TableName: 'checkers_games'
+    };
+    DB.deleteItem(params, function(err, data) {
+        if (err)
+            console.log('removeGame', err);
+        else
+            console.log(gameId, 'removed');
     });
 }
 

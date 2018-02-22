@@ -1566,6 +1566,7 @@ MonoBehaviour:
   tcp: {fileID: 336148771}
   canvas: {fileID: 1782753857}
   game: {fileID: 1383740529}
+  mainCamera: {fileID: 1065590020}
   waitingScreen: {fileID: 1907361145}
   welcomeScreen: {fileID: 1435846808}
   connectScreen: {fileID: 1537774862}

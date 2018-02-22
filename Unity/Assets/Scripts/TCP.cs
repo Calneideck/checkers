@@ -9,7 +9,7 @@ public class TCP : MonoBehaviour
 {
     private enum ServerType { LOGIN, REGISTER, CREATE_GAME, REQUEST_GAMES, JOIN_RESUME_GAME, MOVE, SURRENDER, LEAVE_GAME };
     private enum ClientType { LOGIN_RESULT, GAME_CREATED, GAME_LIST, GAME_STATE, MOVE_RESULT, GAME_UPDATE, SURRENDER_RESULT, LEAVE_GAME_RESULT };
-    private enum Connection { NONE, CONNECTED, FAILED };
+    private enum ConnectionMessage { NONE, CONNECTED, FAILED };
 
     private TcpClient client;
     private NetworkStream stream;
@@ -22,7 +22,7 @@ public class TCP : MonoBehaviour
     private event Action<string[]> requestGamesCallback;
     private event Action<string> gameUpdateCallback;
 
-    private Connection connection;
+    private ConnectionMessage connectionMessage;
 
     void Start()
     {
@@ -32,7 +32,8 @@ public class TCP : MonoBehaviour
     public void TryToConnect()
     {
         client = new TcpClient();
-        client.BeginConnect("127.0.0.1", 5000, new AsyncCallback((result) =>
+        //client.BeginConnect("127.0.0.1", 5000, new AsyncCallback((result) =>
+        client.BeginConnect("13.55.117.179", 5000, new AsyncCallback((result) =>
         {
             bool connected = false;
             try
@@ -47,21 +48,21 @@ public class TCP : MonoBehaviour
                 Debug.LogError("Could not connect to server");
             }
 
-            connection = connected ? Connection.CONNECTED : Connection.FAILED;
+            connectionMessage = connected ? ConnectionMessage.CONNECTED : ConnectionMessage.FAILED;
         }), null);
     }
 
     void CheckConnection()
     {
-        if (connection != Connection.NONE)
+        if (connectionMessage != ConnectionMessage.NONE)
         {
             if (connectCallback != null)
-                connectCallback.Invoke(connection == Connection.CONNECTED);
+                connectCallback.Invoke(connectionMessage == ConnectionMessage.CONNECTED);
 
-            if (connection == Connection.FAILED)
+            if (connectionMessage == ConnectionMessage.FAILED)
                 Toast.ShowMessage("Could not connect");
 
-            connection = Connection.NONE;
+            connectionMessage = ConnectionMessage.NONE;
         }
     }
 
