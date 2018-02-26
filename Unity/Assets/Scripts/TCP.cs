@@ -32,8 +32,8 @@ public class TCP : MonoBehaviour
     public void TryToConnect()
     {
         client = new TcpClient();
-        client.BeginConnect("127.0.0.1", 5000, new AsyncCallback((result) =>
-        //client.BeginConnect("13.55.117.179", 5000, new AsyncCallback((result) =>
+        //client.BeginConnect("127.0.0.1", 5000, new AsyncCallback((result) =>
+        client.BeginConnect("13.55.117.179", 5000, new AsyncCallback((result) =>
         {
             bool connected = false;
             try
