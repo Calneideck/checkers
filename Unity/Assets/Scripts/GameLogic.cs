@@ -29,12 +29,12 @@ public static class GameLogic
 
     public static void NewGame()
     {
-        grid = new Tile[50];
-        for (int i = 0; i < 50; i++)
+        grid = new Tile[32];
+        for (int i = 0; i < 32; i++)
         {
-            if (i < 20)
+            if (i < 12)
                 grid[i] = Tile.BLUE;
-            else if (i >= 30)
+            else if (i >= 20)
                 grid[i] = Tile.WHITE;
             else
                 grid[i] = Tile.EMPTY;
@@ -57,7 +57,7 @@ public static class GameLogic
 
     public static Result Move(int tileNumber, int targetTileNumber)
     {
-        if (tileNumber < 0 || tileNumber >= 50 || targetTileNumber < 0 || targetTileNumber >= 50)
+        if (tileNumber < 0 || tileNumber >= 32 || targetTileNumber < 0 || targetTileNumber >= 32)
             return new Result(false, -1, null, false);
 
         // if game is over
@@ -93,7 +93,7 @@ public static class GameLogic
             // Upgrade to king
             if (playerNumber == 0)
             {
-                if (GetRow(targetTileNumber) == 10)
+                if (GetRow(targetTileNumber) == 8)
                 {
                     grid[targetTileNumber] = Tile.BLUE_KING;
                     king = true;
@@ -115,7 +115,7 @@ public static class GameLogic
             else
             {
                 // Jumped over so may get to continue
-                if (result >= 0 && result < 50)
+                if (result >= 0 && result < 32)
                     grid[result] = Tile.EMPTY;
 
                 fullResult = new Result(true, result, GetAvailMoves(targetTileNumber), king);
@@ -136,7 +136,7 @@ public static class GameLogic
 
     public static int[] GetAvailMoves(int tileNumber)
     {
-        if (tileNumber < 0 || tileNumber >= 50)
+        if (tileNumber < 0 || tileNumber >= 32)
             return new int[0];
 
         if (winner != -1)
@@ -156,7 +156,7 @@ public static class GameLogic
     private static void CheckJumpAvail()
     {
         jumpsAvail = false;
-        for (int i = 0; i < 50; i++)
+        for (int i = 0; i < 32; i++)
             if (OwnerOfTile(i) == playerNumber)
             {
                 int[] moves = GetAvailMoves(i);
@@ -190,40 +190,40 @@ public static class GameLogic
     {
         int row = GetRow(tileNumber);
 
-        if (row >= 10)
+        if (row >= 8)
             return;
 
         if (moved == -1 && !jumpsAvail)
         {
-            if (grid[tileNumber + 5] == Tile.EMPTY)
-                moves.Add(tileNumber + 5);
+            if (grid[tileNumber + 4] == Tile.EMPTY)
+                moves.Add(tileNumber + 4);
 
             if (OddRow(tileNumber))
             {
-                if (tileNumber + 6 < 50 && grid[tileNumber + 6] == Tile.EMPTY && GetRow(tileNumber + 6) == row + 1)
-                    moves.Add(tileNumber + 6);
+                if (tileNumber + 5 < 32 && grid[tileNumber + 5] == Tile.EMPTY && GetRow(tileNumber + 5) == row + 1)
+                    moves.Add(tileNumber + 5);
             }
             else
             {
-                if (tileNumber + 4 < 50 && grid[tileNumber + 4] == Tile.EMPTY && GetRow(tileNumber + 4) == row + 1)
-                    moves.Add(tileNumber + 4);
+                if (tileNumber + 3 < 32 && grid[tileNumber + 3] == Tile.EMPTY && GetRow(tileNumber + 3) == row + 1)
+                    moves.Add(tileNumber + 3);
             }
         }
 
-        if (row >= 9 || (moved >= 0 && tileNumber != moved))
+        if (row >= 7 || (moved >= 0 && tileNumber != moved))
             return;
 
         // Jumping over opponent token
-        if (tileNumber + 9 < 50 && grid[tileNumber + 9] == Tile.EMPTY && GetRow(tileNumber + 9) == row + 2)
+        if (tileNumber + 7 < 32 && grid[tileNumber + 7] == Tile.EMPTY && GetRow(tileNumber + 7) == row + 2)
         { 
-            if (OwnerOfTile(tileNumber + (OddRow(tileNumber) ? 5 : 4)) == 1 - playerNumber)
-                moves.Add(tileNumber + 9);
+            if (OwnerOfTile(tileNumber + (OddRow(tileNumber) ? 4 : 3)) == 1 - playerNumber)
+                moves.Add(tileNumber + 7);
         }
 
-        if (tileNumber + 11 < 50 && grid[tileNumber + 11] == Tile.EMPTY && GetRow(tileNumber + 11) == row + 2)
+        if (tileNumber + 9 < 32 && grid[tileNumber + 9] == Tile.EMPTY && GetRow(tileNumber + 9) == row + 2)
         {
-            if (OwnerOfTile(tileNumber + (OddRow(tileNumber) ? 6 : 5)) == 1 - playerNumber)
-                moves.Add(tileNumber + 11);
+            if (OwnerOfTile(tileNumber + (OddRow(tileNumber) ? 5 : 4)) == 1 - playerNumber)
+                moves.Add(tileNumber + 9);
         }
     }
 
@@ -236,34 +236,34 @@ public static class GameLogic
 
         if (moved == -1 && !jumpsAvail)
         {
-            if (grid[tileNumber - 5] == Tile.EMPTY)
-                moves.Add(tileNumber - 5);
+            if (grid[tileNumber - 4] == Tile.EMPTY)
+                moves.Add(tileNumber - 4);
 
             if (OddRow(tileNumber))
             {
-                if (tileNumber - 4 >= 0 && grid[tileNumber - 4] == Tile.EMPTY && GetRow(tileNumber - 4) == row - 1)
-                    moves.Add(tileNumber - 4);
+                if (tileNumber - 3 >= 0 && grid[tileNumber - 3] == Tile.EMPTY && GetRow(tileNumber - 3) == row - 1)
+                    moves.Add(tileNumber - 3);
             }
             else
             {
-                if (tileNumber - 6 >= 0 && grid[tileNumber - 6] == Tile.EMPTY && GetRow(tileNumber - 6) == row - 1)
-                    moves.Add(tileNumber - 6);
+                if (tileNumber - 5 >= 0 && grid[tileNumber - 5] == Tile.EMPTY && GetRow(tileNumber - 5) == row - 1)
+                    moves.Add(tileNumber - 5);
             }
         }
 
         if (row <= 2 || (moved >= 0 && tileNumber != moved))
             return;
 
+        if (tileNumber - 7 >= 0 && grid[tileNumber - 7] == Tile.EMPTY && GetRow(tileNumber - 7) == row - 2)
+        {
+            if (OwnerOfTile(tileNumber - (OddRow(tileNumber) ? 3 : 4)) == 1 - playerNumber)
+                moves.Add(tileNumber - 7);
+        }
+
         if (tileNumber - 9 >= 0 && grid[tileNumber - 9] == Tile.EMPTY && GetRow(tileNumber - 9) == row - 2)
         {
             if (OwnerOfTile(tileNumber - (OddRow(tileNumber) ? 4 : 5)) == 1 - playerNumber)
                 moves.Add(tileNumber - 9);
-        }
-
-        if (tileNumber - 11 >= 0 && grid[tileNumber - 11] == Tile.EMPTY && GetRow(tileNumber - 11) == row - 2)
-        {
-            if (OwnerOfTile(tileNumber - (OddRow(tileNumber) ? 5 : 6)) == 1 - playerNumber)
-                moves.Add(tileNumber - 11);
         }
     }
 
@@ -272,7 +272,7 @@ public static class GameLogic
         int r1 = GetRow(tile);
 
         // Can't move beyond last row
-        if (r1 >= 10)
+        if (r1 >= 8)
             return -1;
 
         int r2 = GetRow(targetTile);
@@ -283,8 +283,8 @@ public static class GameLogic
             if (moved != -1 || jumpsAvail)
                 return -1;
 
-            if (targetTile == tile + (OddRow(tile) ? 6 : 4) || targetTile == tile + 5)
-                return 50;
+            if (targetTile == tile + (OddRow(tile) ? 5 : 3) || targetTile == tile + 4)
+                return 32;
         }
         else if (r2 == r1 + 2)
         {
@@ -293,7 +293,20 @@ public static class GameLogic
 
             // Jumping over an opponent token
             // Check if valid diagonal jump and tile inbetween has an opponent token on it
-            if (targetTile == tile + 9)
+            if (targetTile == tile + 7)
+            {
+                if (OddRow(tile))
+                {
+                    if (OwnerOfTile(tile + 4) == 1 - playerNumber)
+                        return tile + 4;
+                }
+                else
+                {
+                    if (OwnerOfTile(tile + 3) == 1 - playerNumber)
+                        return tile + 3;
+                }
+            }
+            else if (targetTile == tile + 9)
             {
                 if (OddRow(tile))
                 {
@@ -304,19 +317,6 @@ public static class GameLogic
                 {
                     if (OwnerOfTile(tile + 4) == 1 - playerNumber)
                         return tile + 4;
-                }
-            }
-            else if (targetTile == tile + 11)
-            {
-                if (OddRow(tile))
-                {
-                    if (OwnerOfTile(tile + 6) == 1 - playerNumber)
-                        return tile + 6;
-                }
-                else
-                {
-                    if (OwnerOfTile(tile + 5) == 1 - playerNumber)
-                        return tile + 5;
                 }
             }
         }
@@ -340,8 +340,8 @@ public static class GameLogic
             if (moved != -1 || jumpsAvail)
                 return -1;
 
-            if (targetTile == tile - (OddRow(tile) ? 4 : 6) || targetTile == tile - 5)
-                return 50;
+            if (targetTile == tile - (OddRow(tile) ? 3 : 5) || targetTile == tile - 4)
+                return 32;
         }
         else if (r2 == r1 - 2)
         {
@@ -350,7 +350,20 @@ public static class GameLogic
 
             // Jumping over an opponent token
             // Check if valid diagonal jump and tile inbetween has an opponent token on it
-            if (targetTile == tile - 9)
+            if (targetTile == tile - 7)
+            {
+                if (OddRow(tile))
+                {
+                    if (OwnerOfTile(tile - 3) == 1 - playerNumber)
+                        return tile - 3;
+                }
+                else
+                {
+                    if (OwnerOfTile(tile - 4) == 1 - playerNumber)
+                        return tile - 4;
+                }
+            }
+            else if (targetTile == tile - 9)
             {
                 if (OddRow(tile))
                 {
@@ -363,30 +376,17 @@ public static class GameLogic
                         return tile - 5;
                 }
             }
-            else if (targetTile == tile - 11)
-            {
-                if (OddRow(tile))
-                {
-                    if (OwnerOfTile(tile - 5) == 1 - playerNumber)
-                        return tile - 5;
-                }
-                else
-                {
-                    if (OwnerOfTile(tile - 6) == 1 - playerNumber)
-                        return tile - 6;
-                }
-            }
         }
 
         return -1;
     }
 
     /// <summary>
-    /// Returns 1 to 10
+    /// Returns 1 to 8
     /// </summary>
     private static int GetRow(int tile)
     {
-        return (int)System.Math.Ceiling((tile + 1) / 5f);
+        return (int)System.Math.Ceiling((tile + 1) / 4f);
     }
 
     private static bool OddRow(int tile)

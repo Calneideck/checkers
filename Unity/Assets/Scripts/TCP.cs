@@ -32,8 +32,8 @@ public class TCP : MonoBehaviour
     public void TryToConnect()
     {
         client = new TcpClient();
-        //client.BeginConnect("127.0.0.1", 5000, new AsyncCallback((result) =>
-        client.BeginConnect("13.55.117.179", 5000, new AsyncCallback((result) =>
+        client.BeginConnect("127.0.0.1", 5000, new AsyncCallback((result) =>
+        //client.BeginConnect("13.55.117.179", 5000, new AsyncCallback((result) =>
         {
             bool connected = false;
             try
@@ -132,11 +132,11 @@ public class TCP : MonoBehaviour
                     if (result)
                     {
                         string boardString = ReadString(bytes, ref offset);
-                        if (boardString.Length == 99)
+                        if (boardString.Length == 63)
                         {
                             string[] tiles = boardString.Split(',');
-                            GameLogic.Tile[] board = new GameLogic.Tile[50];
-                            for (int i = 0; i < 50; i++)
+                            GameLogic.Tile[] board = new GameLogic.Tile[32];
+                            for (int i = 0; i < 32; i++)
                                 board[i] = (GameLogic.Tile)Convert.ToInt32(tiles[i]);
 
                             int turn = ReadInt(bytes, ref offset);

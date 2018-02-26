@@ -122,7 +122,7 @@ public class Game : MonoBehaviour
                     selectedToken.GetComponent<Token>().King = true;
                 }
 
-                if (result.removedToken >= 0 && result.removedToken < 50)
+                if (result.removedToken >= 0 && result.removedToken < 32)
                 {
                     GameObject removedToken = TokenFromIndex(result.removedToken);
                     tokens.Remove(removedToken);
@@ -187,10 +187,10 @@ public class Game : MonoBehaviour
 
     void NewGame()
     {
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 12; i++)
             CreateToken(i, GameLogic.Tile.BLUE);
 
-        for (int i = 30; i < 50; i++)
+        for (int i = 20; i < 32; i++)
             CreateToken(i, GameLogic.Tile.WHITE);
 
         GameLogic.NewGame();

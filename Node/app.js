@@ -131,7 +131,7 @@ var server = NET.createServer(function(socket) {
       if (gameId) {
         gameId = gameId.toUpperCase();
         DB.getGame(gameId, clients[socket.remoteAddress].username, function(err, board, turn, blue, white, winner) {
-          if (err || board.length != 99)
+          if (err || board.length != 63)
             basicFail(socket, ClientType.GAME_STATE, err ? err : 'Unable to get game data');
           else {
             var buffer = Buffer.alloc(124 + blue.length + white.length);
@@ -167,7 +167,7 @@ var server = NET.createServer(function(socket) {
 
       // get game information
       DB.getGame(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err, board, turn, blue, white, winner) {
-        if (err || board.length != 99)
+        if (err || board.length != 63)
           basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Unable to get game data');
         else {
           if (winner != -1)
