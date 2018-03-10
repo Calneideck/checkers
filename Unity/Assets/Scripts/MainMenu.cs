@@ -94,7 +94,6 @@ public class MainMenu : MonoBehaviour
 
     public void Register()
     {
-        print(true);
         ShowWaiting();
         username = regUserField.text;
         tcp.LoginRegister(false, regUserField.text, regPasswordField.text, RegisterResult);

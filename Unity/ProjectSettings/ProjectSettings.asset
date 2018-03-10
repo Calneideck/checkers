@@ -243,8 +243,8 @@ PlayerSettings:
   AndroidTargetDevice: 0
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
-  AndroidKeystoreName: 
-  AndroidKeyaliasName: 
+  AndroidKeystoreName: S:/Documents/Programming/Unity/CallumNeideck.keystore
+  AndroidKeyaliasName: callumneideck
   AndroidTVCompatibility: 1
   AndroidIsGame: 1
   AndroidEnableTango: 0
