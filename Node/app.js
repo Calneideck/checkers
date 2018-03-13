@@ -25,18 +25,22 @@ const ClientType = {
 };
 
 // Keep track of the chat clients
-var clients = {};
-var sockets = [];
+var clients = [];
 
 // Start a TCP Server
 var server = NET.createServer(function(socket) {
   // Put this new client in the list
-  clients[socket.remoteAddress] = { username: null, gameId: null };
-  sockets.push(socket);
+  clients.push({ socket: socket, username: null, gameId: null });
   console.log('client connected: ' + socket.remoteAddress);
 
   // Handle incoming messages from clients.
   socket.on('data', function(data) {
+    var user = getUserFromSocket(socket);
+    if (user == null) {
+      console.log('Missing user');
+      return;
+    }
+
     var obj = { offset: 0 };
     var id = readInt(socket, data, obj);
 
@@ -56,7 +60,7 @@ var server = NET.createServer(function(socket) {
         else {
           basicSuccess(socket, ClientType.LOGIN_RESULT);
           console.log(username, 'logged in');
-          clients[socket.remoteAddress].username = username;
+          user.username = username;
         }
       });
     }
@@ -74,7 +78,7 @@ var server = NET.createServer(function(socket) {
         else {
           basicSuccess(socket, ClientType.LOGIN_RESULT);
           console.log(username, 'registered');
-          clients[socket.remoteAddress].username = username;
+          user.username = username;
         }
       });
     }
@@ -85,10 +89,10 @@ var server = NET.createServer(function(socket) {
       if (colour != 0 && colour != 1)
         return basicFail(socket, ClientType.GAME_CREATED, 'Colour not specified');
 
-      if (clients[socket.remoteAddress].username == null)
+      if (user.username == null)
         return basicFail(socket, ClientType.GAME_CREATED, 'You must be logged in to do that');
         
-      DB.createGame(clients[socket.remoteAddress].username, colour, function(err, gameId) {
+      DB.createGame(getUserFromSocket(socket).username, colour, function(err, gameId) {
         if (err)
           basicFail(socket, ClientType.GAME_CREATED, err);
         else {
@@ -99,16 +103,16 @@ var server = NET.createServer(function(socket) {
           writeString(socket, buffer, obj, gameId);
           socket.write(buffer);
           console.log('game created:', gameId)
-          clients[socket.remoteAddress].gameId = gameId;
+          user.gameId = gameId;
         }
       });
     }
 
     else if (id == ServerType.REQUEST_GAMES) {
-      if (clients[socket.remoteAddress].username == null)
+      if (user.username == null)
         return basicFail(socket, ClientType.GAME_LIST, 'You must be logged in to do that');
 
-      DB.getUserGames(clients[socket.remoteAddress].username, function(err, gamesList) {
+      DB.getUserGames(user.username, function(err, gamesList) {
         if (err)
           basicFail(socket, ClientType.GAME_LIST, err);
         else {
@@ -125,12 +129,12 @@ var server = NET.createServer(function(socket) {
     else if (id == ServerType.JOIN_RESUME_GAME) {
       var gameId = readString(socket, data, obj);
 
-      if (clients[socket.remoteAddress].username == null)
+      if (user.username == null)
         return basicFail(socket, ClientType.GAME_STATE, 'You must be logged in to do that');
 
       if (gameId) {
         gameId = gameId.toUpperCase();
-        DB.getGame(gameId, clients[socket.remoteAddress].username, function(err, board, turn, blue, white, winner) {
+        DB.getGame(gameId, user.username, function(err, board, turn, blue, white, winner) {
           if (err || board.length != 63)
             basicFail(socket, ClientType.GAME_STATE, err ? err : 'Unable to get game data');
           else {
@@ -144,7 +148,7 @@ var server = NET.createServer(function(socket) {
             writeString(socket, buffer, obj, white);
             writeInt(socket, buffer, obj, winner);
             socket.write(buffer);
-            clients[socket.remoteAddress].gameId = gameId;
+            user.gameId = gameId;
           }
         });
       }
@@ -159,14 +163,14 @@ var server = NET.createServer(function(socket) {
       for (var i = 0; i < moveCount; i++)
         moves.push(readInt(socket, data, obj));
 
-      if (clients[socket.remoteAddress].username == null)
+      if (user.username == null)
         return basicFail(socket, ClientType.MOVE_RESULT, 'You must be logged in to do that');
       
-      if (clients[socket.remoteAddress].gameId == null)
+      if (user.gameId == null)
         return basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Not in a game');
 
       // get game information
-      DB.getGame(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err, board, turn, blue, white, winner) {
+      DB.getGame(user.gameId, user.username, function(err, board, turn, blue, white, winner) {
         if (err || board.length != 63)
           basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Unable to get game data');
         else {
@@ -175,9 +179,9 @@ var server = NET.createServer(function(socket) {
 
           // Set player number from username
           var playerNumber = -1;
-          if (blue == clients[socket.remoteAddress].username)
+          if (blue == user.username)
             playerNumber = 0;
-          else if (white == clients[socket.remoteAddress].username)
+          else if (white == user.username)
             playerNumber = 1;
           else
             basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Not in game');
@@ -187,7 +191,7 @@ var server = NET.createServer(function(socket) {
           if (result.success) {
             turn = 1 - turn;
             // Update the game
-            DB.updateGame(clients[socket.remoteAddress].gameId, result.board, turn, result.winner, function(err) {
+            DB.updateGame(user.gameId, result.board, turn, result.winner, function(err) {
               if (err)
                 basicFail(socket, ClientType.MOVE_RESULT, err ? err : 'Unable to get game data');
               else {
@@ -201,7 +205,7 @@ var server = NET.createServer(function(socket) {
                 // Let opponent know it's their turn
                 var otherUser = turn == 0 ? blue : white;
                 if (otherUser)
-                  announceMove(otherUser, clients[socket.remoteAddress].gameId);
+                  announceMove(otherUser, user.gameId);
               }
             });
           }
@@ -212,13 +216,13 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.SURRENDER) {
-      if (clients[socket.remoteAddress].username == null)
+      if (user.username == null)
         return basicFail(socket, ClientType.SURRENDER_RESULT, 'You must be logged in to do that');
       
-      if (clients[socket.remoteAddress].gameId == null)
+      if (user.gameId == null)
         return basicFail(socket, ClientType.SURRENDER_RESULT, err ? err : 'Not in a game');
 
-      DB.surrender(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err) {
+      DB.surrender(user.gameId, user.username, function(err) {
         if (err)
           basicFail(socket, ClientType.SURRENDER_RESULT, err);
         else
@@ -227,13 +231,13 @@ var server = NET.createServer(function(socket) {
     }
 
     else if (id == ServerType.LEAVE_GAME) {
-      if (clients[socket.remoteAddress].username == null)
+      if (user.username == null)
         return basicFail(socket, ClientType.LEAVE_GAME_RESULT, 'You must be logged in to do that');
       
-      if (clients[socket.remoteAddress].gameId == null)
+      if (user.gameId == null)
         return basicFail(socket, ClientType.LEAVE_GAME_RESULT, err ? err : 'Not in a game');
 
-      DB.leaveGame(clients[socket.remoteAddress].gameId, clients[socket.remoteAddress].username, function(err) {
+      DB.leaveGame(user.gameId, user.username, function(err) {
         if (err)
           basicFail(socket, ClientType.LEAVE_GAME_RESULT, err);
         else
@@ -245,14 +249,14 @@ var server = NET.createServer(function(socket) {
   // Remove the client from the list when it leaves
   socket.on('end', function () {
     console.log(socket.remoteAddress, 'left');
-    delete clients[socket.remoteAddress];
-    sockets.splice(sockets.indexOf(socket), 1);
+    delete getUserFromSocket(socket);
+    clients.splice(clients.indexOf(getUserFromSocket(socket)), 1);
   });
 
   socket.on('error', function () {
     console.log(socket.remoteAddress, 'left (error)');
-    delete clients[socket.remoteAddress];
-    sockets.splice(sockets.indexOf(socket), 1);
+    delete getUserFromSocket(socket);
+    clients.splice(clients.indexOf(getUserFromSocket(socket)), 1);
   });
 }).listen(5000);
 
@@ -322,16 +326,24 @@ function basicSuccess(socket, clientType) {
 }
 
 function announceMove(username, gameId) {
-  for (var i = 0; i < sockets.length; i++)
-    if (clients[sockets[i].remoteAddress].username == username) {
+  for (var i = 0; i < clients.length; i++)
+    if (clients[i].username == username) {
       var buffer = Buffer.alloc(13);
       var obj = { offset: 0 };
-      writeInt(sockets[i], buffer, obj, ClientType.GAME_UPDATE);
-      writeString(sockets[i], buffer, obj, gameId);
-      sockets[i].write(buffer);
-      console.log('announced update to', clients[sockets[i].remoteAddress].username, 'for', gameId);
+      writeInt(clients[i].socket, buffer, obj, ClientType.GAME_UPDATE);
+      writeString(clients[i].socket, buffer, obj, gameId);
+      clients[i].socket.write(buffer);
+      console.log('announced update to', clients[i].username, 'for', gameId);
       break;
     }
+}
+
+function getUserFromSocket(socket) {
+  for (var key in clients)
+    if (clients[key].socket == socket)
+      return clients[key];
+
+  return null;
 }
 
 function idStringFromNumber(number) {
