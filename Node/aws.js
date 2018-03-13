@@ -491,7 +491,7 @@ function checkToRemoveGame(gameId, username) {
                     ProjectionExpression: 'games'
                 };
                 // Get details of opponent
-                params.Key.username.S =data.Item.blue.Sblue == username ? data.Item.white.S : data.Item.blue.S;
+                params.Key.username.S = data.Item.blue.S == username ? data.Item.white.S : data.Item.blue.S;
                 DB.getItem(params, function(err, data) {
                     if (err || Object.getOwnPropertyNames(data).length == 0) {
                         if (err)
